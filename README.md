@@ -30,7 +30,7 @@ This project performs object detection and feature extraction using a pretrained
    - Download the GloVe 6B embeddings from [https://nlp.stanford.edu/data/glove.6B.zip](https://nlp.stanford.edu/data/glove.6B.zip)
    - Extract the files and place the `glove.6B.300d.txt` file inside a folder named `glove.6B` in the project root:
      ```
-     CV Project/
+     Scene-graph-generation/
      └── glove.6B/
          └── glove.6B.300d.txt
      ```
@@ -42,7 +42,7 @@ This project performs object detection and feature extraction using a pretrained
 
 ## File Structure
 ```
-CV Project/
+Scene-graph-generation/
 ├── main.py
 ├── detector.py
 ├── features.py
@@ -54,3 +54,4 @@ CV Project/
 │   └── glove.6B.300d.txt
 └── test_image.png
 ```
+
