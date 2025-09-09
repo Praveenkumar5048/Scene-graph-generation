@@ -46,7 +46,7 @@ class Detector:
                 "features": box_features,
                 "boxes": boxes,
                 "class_labels": labels,
-                "class_names": [COCO_CLASSES[i] for i in labels],
+                "class_names": [COCO_CLASSES[i] if i < len(COCO_CLASSES) else "unknown" for i in labels],
                 "scores": scores
             }
         print("Feature extraction complete.")
