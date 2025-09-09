@@ -55,6 +55,12 @@ class ARTLayer(nn.Module):
             msgs = []
             for j in range(K):
                 if i == j: continue
+                
+                # Apply mask if provided (Stage 2 filtering)
+                if mask is not None and not mask[i, j]:
+                    pair_idx += 1
+                    continue
+                    
                 pair_feat = pair_feats[pair_idx]
                 pair_idx += 1
                 att_input = torch.cat([x[i], x[j], pair_feat], dim=-1)
@@ -64,7 +70,7 @@ class ARTLayer(nn.Module):
             if len(msgs) > 0:
                 msgs = torch.stack(msgs).mean(dim=0)
             else:
-                msgs = torch.zeros_like(x[i])
+                msgs = torch.zeros_like(self.obj_proj(x[i]))  # Fix: match output dim
             messages.append(msgs)
         messages = torch.stack(messages)
         out = self.norm(x + messages)
