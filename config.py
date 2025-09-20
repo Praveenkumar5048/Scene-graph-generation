@@ -16,4 +16,4 @@ COCO_CLASSES = [
 ]
 
 GLOVE_PATH = "glove.6B/glove.6B.300d.txt"
-IMAGE_PATH = "test_image.png"
+IMAGE_PATH = "test_image1.png"
