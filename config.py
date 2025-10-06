@@ -35,4 +35,4 @@ VG_OFFICIAL_CLASSES = VG_CLASSES
 VG_OFFICIAL_PREDICATES = VG_PREDICATES
 
 GLOVE_PATH = "glove.6B/glove.6B.300d.txt"
-IMAGE_PATH = "test_image2.png"
+IMAGE_PATH = "test_image1.png"

@@ -1,10 +1,9 @@
-from config import VG_CLASSES, GLOVE_PATH, IMAGE_PATH
-from detector import Detector
+from config import VG_CLASSES, VG_PREDICATES as VG_OFFICIAL_PREDICATES, GLOVE_PATH, IMAGE_PATH
+from detector import VGFasterRCNNDetector
 from glove_utils import load_needed_glove
 from features import prepare_object_features
 from sgg_model import SceneGraphGenerator
 from improve_model import initialize_sgg_model_weights, enhance_scene_graph_with_rules
-import torch.nn as nn
 import torch
 import os
 
@@ -12,13 +11,11 @@ def main():
     try:
         print("=== Faster R-CNN with ResNet-50-FPN Scene Graph Generation ===")
         print("Following research paper methodology with exact architecture")
-        
-        detector = FasterRCNNDetector(confidence_threshold=0.5)  # Faster R-CNN as per paper
+
+        detector = VGFasterRCNNDetector()
         predicates = VG_OFFICIAL_PREDICATES
-        
-        # Get the class labels from the detector  
-        object_classes = detector.class_labels
-        print(f"Using {len(object_classes)} VG object classes from pretrained model")
+        object_classes = VG_CLASSES
+        print(f"Using {len(object_classes)} VG object classes")
         print(f"Using {len(predicates)} VG predicates")
 
         # Prepare needed words for GloVe embeddings
@@ -29,8 +26,18 @@ def main():
 
         # Extract features using Faster R-CNN with ResNet-50-FPN
         print(f"Extracting features from image: {IMAGE_PATH}")
-        out = detector.extract_features(IMAGE_PATH, top_k=10)
-        print("Detected objects:", out["class_names"])
+        feats, class_names = detector.extract_features(IMAGE_PATH, top_k=20)
+
+        # Also get boxes/scores/labels for consistency
+        boxes, scores, labels = detector.detect_objects(IMAGE_PATH, confidence_threshold=0.01, max_detections=20)
+        out = {
+            "features": feats,
+            "boxes": boxes,
+            "scores": scores,
+            "class_labels": labels,
+            "class_names": class_names,
+        }
+        print("Detected objects:", class_names)
 
         # Check if any objects were detected
         if len(out["class_names"]) == 0:
@@ -91,7 +98,6 @@ def main():
 
         # Create mapping from detected objects to indices 0, 1, 2, ...
         # This ensures the SGG model works with consecutive indices
-        detected_to_sequential = {i: i for i in range(len(out["class_names"]))}
         sequential_class_ids = torch.arange(len(out["class_names"]), dtype=torch.long)
         
         print(f"Using sequential class IDs: {sequential_class_ids.tolist()}")
@@ -99,7 +105,7 @@ def main():
 
         # Run inference with sequential indices
         print("Running Scene Graph Generation...")
-        scene_graph = sgg_model.predict(h, boxes_xywh, detected_classes=sequential_class_ids)
+        scene_graph = sgg_model.predict(h, boxes_xywh, detected_classes=sequential_class_ids, scores=out["scores"]) 
         
         # Enhance with rule-based relationships (using sequential indices)
         print("Enhancing with rule-based relationships...")

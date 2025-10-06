@@ -2,6 +2,7 @@
 import torch
 import torchvision.transforms as transforms
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
 from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
 from torchvision.models.detection import FasterRCNN
 from PIL import Image
@@ -16,7 +17,8 @@ class VGFasterRCNNDetector:
         self.transform = transforms.Compose([
             transforms.ToTensor(),
         ])
-        self.classes = VG_CLASSES
+        self.classes = VG_CLASSES  # default (VG)
+        self.using_coco = False
         self._initialize_model()
 
     def _initialize_model(self):
@@ -142,13 +144,12 @@ class VGFasterRCNNDetector:
             
         except Exception as e:
             print(f"Error loading checkpoint: {e}")
-            print("Creating fresh ResNet-101-FPN model with COCO pretraining...")
-            # Fallback to fresh COCO model
-            backbone = resnet_fpn_backbone('resnet101', pretrained=True)
-            self.model = FasterRCNN(
-                backbone=backbone,
-                num_classes=len(self.classes)
-            )
+            print("Falling back to torchvision COCO pretrained Faster R-CNN ResNet50-FPN...")
+            # Strong fallback: fully pretrained detection model (COCO)
+            self.model = fasterrcnn_resnet50_fpn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT)
+            self.using_coco = True
+            # Use numeric class names to avoid mismatch
+            self.classes = [f"cls_{i}" for i in range(100)]
         
         self.model.to(self.device)
         self.model.eval()
@@ -242,12 +243,19 @@ class VGFasterRCNNDetector:
             box_features = self.model.roi_heads.box_head(roi_features)
             
         print("Feature extraction complete.")
-        
-        # Debug: Print predicted class indices and names
-        print(f"Predicted class indices: {labels.tolist()}")
-        class_names = [self.classes[label] for label in labels]
-        print(f"Predicted class names: {class_names}")
-        
+
+        # Robust class name mapping (supports COCO/VG)
+        def _name_for_label(lbl: int) -> str:
+            try:
+                if 0 <= lbl < len(self.classes):
+                    return self.classes[lbl]
+                return f"cls_{lbl}"
+            except Exception:
+                return f"cls_{lbl}"
+
+        class_names = [_name_for_label(int(l)) for l in labels.tolist()]
+        print(f"Predicted classes: {class_names}")
+
         return box_features.cpu(), class_names
 
 # Alias for backward compatibility

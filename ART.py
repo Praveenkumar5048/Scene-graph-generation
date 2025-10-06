@@ -29,10 +29,12 @@ class PairSpatialEncoder(nn.Module):
                 dx, dy = (xj - xi) / (wi + 1e-6), (yj - yi) / (hi + 1e-6)
                 dw, dh = torch.log(wj / wi + 1e-6), torch.log(hj / hi + 1e-6)
                 
-                # Proper IoU calculation
+                # Proper IoU calculation (tensor-safe)
                 x1i, y1i, x2i, y2i = xi, yi, xi + wi, yi + hi
                 x1j, y1j, x2j, y2j = xj, yj, xj + wj, yj + hj
-                inter_area = max(0, min(x2i, x2j) - max(x1i, x1j)) * max(0, min(y2i, y2j) - max(y1i, y1j))
+                inter_w = torch.clamp(torch.minimum(x2i, x2j) - torch.maximum(x1i, x1j), min=0)
+                inter_h = torch.clamp(torch.minimum(y2i, y2j) - torch.maximum(y1i, y1j), min=0)
+                inter_area = inter_w * inter_h
                 union_area = wi * hi + wj * hj - inter_area
                 iou = inter_area / (union_area + 1e-6)
                 
@@ -95,7 +97,9 @@ class ARTLayer(nn.Module):
                 msgs = torch.zeros_like(self.obj_proj(x[i]))  # Fix: match output dim
             messages.append(msgs)
         messages = torch.stack(messages)
-        out = self.norm(x + messages)
+        # Project x to hidden dim for residual addition
+        x_proj = self.obj_proj(x)
+        out = self.norm(x_proj + messages)
         out = self.norm(out + self.ffn(out))
         return out
 
