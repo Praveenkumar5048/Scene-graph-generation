@@ -3,7 +3,7 @@ import torch.nn as nn
 from ART import ARTEncoder
 from relation_decoder import RelationDecoder
 from sol import subject_object_localization
-from dtm import dynamic_triplet_mining
+from dual_transh import DualTransHScorer
 
 
 class SceneGraphGenerator(nn.Module):
@@ -16,6 +16,7 @@ class SceneGraphGenerator(nn.Module):
         num_predicates: int = 50,
         use_sol: bool = True,
         use_dtm: bool = True,
+        use_dual_transh: bool = True,
     ) -> None:
         super().__init__()
         # Project input features to ART input (optionally with class score)
@@ -32,8 +33,12 @@ class SceneGraphGenerator(nn.Module):
         )
         self.obj_proj = nn.Linear(art_hidden_dim, obj_dim)
 
-        # Relation decoder
+        # Relation decoder (MLP over subj/obj embed + geometry)
         self.relation = RelationDecoder(obj_dim=obj_dim, pair_geom_dim=128, num_predicates=num_predicates)
+        # Dual TransH scorer over (subj, rel, obj)
+        self.use_dual_transh = use_dual_transh
+        if self.use_dual_transh:
+            self.dual_transh = DualTransHScorer(num_relations=num_predicates, embed_dim=obj_dim)
 
         self.use_sol = use_sol
         self.use_dtm = use_dtm
@@ -84,19 +89,17 @@ class SceneGraphGenerator(nn.Module):
         kept_embed = obj_embed[keep_idx]
         kept_boxes = boxes_xywh[keep_idx]
 
-        # DTM: generate pairs
-        pairs = torch.stack(torch.meshgrid(keep_idx, keep_idx, indexing="ij"), dim=-1).view(-1, 2)
-        pairs = pairs[pairs[:, 0] != pairs[:, 1]]
-        if self.use_dtm:
-            # Convert to local indices for geometry computation
-            local_pairs = dynamic_triplet_mining(num_objects=kept_embed.size(0))
-            # map local pairs back to global indices
-            if local_pairs.numel() > 0:
-                global_pairs = torch.stack([keep_idx[local_pairs[:, 0]], keep_idx[local_pairs[:, 1]]], dim=-1)
-            else:
-                global_pairs = torch.zeros(0, 2, dtype=torch.long, device=device)
+        # Generate subject-object pairs (exclude self-pairs)
+        # Build local pairs over kept objects, then map to global indices
+        if kept_embed.size(0) > 1:
+            loc_i, loc_j = torch.meshgrid(torch.arange(kept_embed.size(0), device=device),
+                                           torch.arange(kept_embed.size(0), device=device), indexing="ij")
+            mask = loc_i != loc_j
+            local_pairs = torch.stack([loc_i[mask], loc_j[mask]], dim=-1)
+            global_pairs = torch.stack([keep_idx[local_pairs[:, 0]], keep_idx[local_pairs[:, 1]]], dim=-1)
         else:
-            global_pairs = pairs
+            local_pairs = torch.zeros(0, 2, dtype=torch.long, device=device)
+            global_pairs = torch.zeros(0, 2, dtype=torch.long, device=device)
 
         # Relation classification
         # Use kept features but index geometry using kept boxes. Need local mapping for decoder.
@@ -108,6 +111,11 @@ class SceneGraphGenerator(nn.Module):
             local_pairs = torch.tensor([[id_map[int(s.item())], id_map[int(o.item())]] for s, o in global_pairs],
                                        dtype=torch.long, device=device)
             rel_logits = self.relation(kept_embed, kept_boxes, local_pairs)
+            # Optionally fuse with Dual TransH scores
+            if self.use_dual_transh:
+                dth_scores = self.dual_transh(kept_embed, local_pairs)  # [P, R]
+                # Simple late fusion: convert dth to logits-ish by temperature scaling and add
+                rel_logits = rel_logits + dth_scores
 
         if rel_logits.numel() == 0:
             triplets = []
