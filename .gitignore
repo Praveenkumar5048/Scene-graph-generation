@@ -9,6 +9,7 @@ build/
 venv/
 .venv/
 .env
+pretrained_faster_rcnn
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
@@ -26,6 +27,8 @@ venv/
 *.csv
 *.tsv
 *.log
+
+pretrained_faster_rcnn/
 
 # GloVe and image files
 glove.6B/

@@ -2,3 +2,5 @@ torch
 torchvision
 Pillow
 numpy
+requests
+python-dotenv
