@@ -75,10 +75,10 @@ class SemanticOrientedLearning(nn.Module):
         pred_semantic: [num_predicates, glove_dim] or None
         """
         # fuse contexts
-    f1 = self.pair_mf(pair_ctx, pair_ctx_other, pair_pos)   # [M, out_dim]
-    # global_feat can be [1, G] - repeat per pair
-    g = global_feat.repeat(f1.size(0), 1) if (global_feat is not None and global_feat.size(0) == 1) else (global_feat if global_feat is not None else pair_ctx)
-    f2 = self.glob_mf(g, pair_pos)
+        f1 = self.pair_mf(pair_ctx, pair_ctx_other, pair_pos)   # [M, out_dim]
+        # global_feat can be [1, G] - repeat per pair
+        g = global_feat.repeat(f1.size(0), 1) if (global_feat is not None and global_feat.size(0) == 1) else (global_feat if global_feat is not None else pair_ctx)
+        f2 = self.glob_mf(g, pair_pos)
         # semantic embeddings
         if pred_semantic is not None:
             # teacher uses predicate semantic guidance: we compute a residual semantic vector for each pair

@@ -98,7 +98,9 @@ class ARTLayer(nn.Module):
                 msgs = torch.zeros_like(self.obj_proj(x[i]))  # Fix: match output dim
             messages.append(msgs)
         messages = torch.stack(messages)
-        out = self.norm(x + messages)
+        # project input objects to hidden dim before adding pairwise messages
+        x_proj = self.obj_proj(x)
+        out = self.norm(x_proj + messages)
         out = self.norm(out + self.ffn(out))
         if len(pair_messages) > 0:
             pair_messages = torch.stack(pair_messages)
