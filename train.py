@@ -62,9 +62,8 @@ def train(args):
     # build modules
     detector = Detector() if args.use_detector else None
 
-    # features -> ART expected input dim = 1329 in ART implementation; prepare_object_features returns 1328
-    input_proj = torch.nn.Linear(1328, 1329).to(device)
-    art = ARTEncoder(input_dim=1329, hidden_dim=512, pair_dim=128).to(device)
+    # features -> ART expected input dim = 1328 (visual 1024 + spatial 4 + glove 300)
+    art = ARTEncoder(input_dim=1328, hidden_dim=512, pair_dim=128).to(device)
     # SOL expects pair_ctx_dim matching pair messages dim (ART returns pair_messages with dim hidden_dim)
     predicates = load_predicates(args.predicates)
     glove_dict = None
@@ -112,10 +111,10 @@ def train(args):
                     'scores': torch.rand(K)
                 }
 
-            # prepare object features and project
-            h = prepare_object_features(det_out)
-            h = input_proj(h.to(device))
-            boxes = det_out['boxes'].to(device)
+            # prepare object features and normalized boxes (cx,cy,w,h)
+            h, norm_boxes = prepare_object_features(det_out)
+            h = h.to(device)
+            boxes = norm_boxes.to(device)
 
             # ART forward
             h2, pair_feats, pair_msgs = art(h, boxes)

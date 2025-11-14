@@ -14,11 +14,13 @@ def run_smoke():
     h = torch.randn(K, 1328)
     # convert boxes to [x,y,w,h] expected by ART.PairSpatialEncoder
     boxes = torch.rand(K, 4) * 100.0
-    # project to ART input dim (ART expects 1329 in repo); create simple linear layer here
-    proj = torch.nn.Linear(1328, 1329)
-    h_proj = proj(h)
+    # ART expects input dim 1328 (visual 1024 + spatial 4 + glove 300)
+    h_proj = h
 
-    art = ARTEncoder(input_dim=1329, hidden_dim=512, pair_dim=128)
+    # create normalized boxes [cx,cy,w,h] in normalized [0,1] range for smoke
+    # here boxes are random center/size already
+    boxes = torch.rand(K, 4)
+    art = ARTEncoder(input_dim=1328, hidden_dim=512, pair_dim=128)
     h2, pair_feats, pair_msgs = art(h_proj, boxes)
 
     # build predicate semantics (dummy)

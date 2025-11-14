@@ -81,13 +81,14 @@ class SemanticOrientedLearning(nn.Module):
         f2 = self.glob_mf(g, pair_pos)
         # semantic embeddings
         if pred_semantic is not None:
-            # teacher uses predicate semantic guidance: we compute a residual semantic vector for each pair
-            # pred_semantic may be (num_predicates, glove_dim) or (M, glove_dim)
+            # teacher uses predicate semantic guidance: pred_semantic may be class-level
+            # pred_semantic: (num_predicates, glove_dim) or (M, glove_dim)
             s = self.pred_proj(pred_semantic) if pred_semantic.ndim == 2 else self.pred_proj(pred_semantic)
-            # if pred_semantic is class-level, expand: here we expect pred_semantic per pair; if not, broadcasting
+            # If provided class-level embeddings (num_predicates x D), reduce to a single semantic
+            # vector (mean) and expand per pair. If pred_semantic already per-pair, use directly.
             if s.size(0) != f1.size(0):
-                # try broadcast if possible; otherwise we'll expand first row
-                s = s.repeat(f1.size(0), 1)
+                # reduce class-level semantics to a single vector then expand
+                s = s.mean(dim=0, keepdim=True).repeat(f1.size(0), 1)
             f3 = s
         else:
             # student: no external semantics
@@ -123,6 +124,10 @@ def build_predicate_semantics(label_list, glove_dict, emb_dim=200):
             a = 0.7
             vmid = glove_dict.get(toks[mid], np.random.normal(size=(emb_dim,))).astype('float32')
             others = [glove_dict.get(t, np.zeros(emb_dim)).astype('float32') for i, t in enumerate(toks) if i!=mid]
-            v = a * vmid + 0.5 * sum(others)
+            # stack others safely
+            others_sum = np.sum(np.stack(others), axis=0) if len(others) > 0 else np.zeros(emb_dim, dtype='float32')
+            v = a * vmid + 0.5 * others_sum
         vecs.append(v)
-    return torch.tensor(vecs, dtype=torch.float32)
+    # faster stack -> tensor conversion
+    arr = np.stack(vecs, axis=0).astype('float32')
+    return torch.from_numpy(arr)

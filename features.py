@@ -15,19 +15,28 @@ def prepare_object_features(detector_output, glove, img_w=640, img_h=480):
     labels = detector_output["class_names"] # [K]
     K = features.size(0)
     
-    # Spatial features: normalized bounding box coordinates
-    norm_boxes = boxes.clone().float()
-    norm_boxes[:, [0, 2]] /= img_w  # normalize x coordinates
-    norm_boxes[:, [1, 3]] /= img_h  # normalize y coordinates
+    # Convert boxes from [x1,y1,x2,y2] to normalized [x_center, y_center, w, h]
+    boxes = boxes.clone().float()
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    cx = ((x1 + x2) / 2.0) / img_w
+    cy = ((y1 + y2) / 2.0) / img_h
+    w = ((x2 - x1) / img_w).clamp(min=0.0)
+    h = ((y2 - y1) / img_h).clamp(min=0.0)
+    norm_boxes = torch.stack([cx, cy, w, h], dim=1)
     
     # Semantic features: GloVe word embeddings
     emb_dim = 300
     word_embeddings = []
     for label in labels:
-        vec = glove.get(label, np.zeros(emb_dim))
+        key = label.lower() if isinstance(label, str) else str(label)
+        vec = glove.get(key, np.zeros(emb_dim))
         word_embeddings.append(torch.tensor(vec, dtype=torch.float32))
     word_embeddings = torch.stack(word_embeddings)  # [K, 300]
     
     # Concatenate: visual + spatial + semantic
     h = torch.cat([features, norm_boxes, word_embeddings], dim=1)  # [K, 1024+4+300=1328]
-    return h
+    # return both feature vectors and the normalized boxes in [cx,cy,w,h] form (for ART pair encoder)
+    return h, norm_boxes

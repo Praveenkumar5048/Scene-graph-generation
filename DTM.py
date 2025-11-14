@@ -26,7 +26,7 @@ class DualTransH(nn.Module):
             assert in_dim % 2 == 0, "in_dim must be even when split_dim not provided"
             split_dim = in_dim // 2
         self.r = split_dim
-        # projection matrices for subject and object (learnable hyperplane normal vectors)
+        # learnable transforms to produce normal vectors (w_h, w_t) used for TransH projection
         self.W_h = nn.Linear(self.r, self.r, bias=False)
         self.W_t = nn.Linear(self.r, self.r, bias=False)
         # small FFN to get final relation representation
@@ -40,8 +40,16 @@ class DualTransH(nn.Module):
         """rel_enc: [M, 2*r] -> returns c_ij: [M, r]
         """
         h, t = rel_enc[:, :self.r], rel_enc[:, self.r: self.r*2]
-        # project onto separate hyperplanes
-        h_proj = h - self.W_h(h) * (h)  # mimic e - w^T e * w, simple learnable transform
-        t_proj = t - self.W_t(t) * (t)
-        diff = h_proj - t_proj
+        eps = 1e-6
+        # compute normal vectors and normalize
+        w_h = self.W_h(h)
+        w_t = self.W_t(t)
+        w_h = w_h / (w_h.norm(p=2, dim=1, keepdim=True) + eps)
+        w_t = w_t / (w_t.norm(p=2, dim=1, keepdim=True) + eps)
+
+        # TransH-like projection: e_proj = e - w * (w^T e)
+        proj_h = h - w_h * (h * w_h).sum(dim=1, keepdim=True)
+        proj_t = t - w_t * (t * w_t).sum(dim=1, keepdim=True)
+
+        diff = proj_h - proj_t
         return self.ffn(diff)

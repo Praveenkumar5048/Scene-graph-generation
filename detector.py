@@ -4,7 +4,7 @@ import torchvision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.transforms import functional as F
 from PIL import Image
-from config import COCO_CLASSES
+from config import CLASSES
 
 class Detector:
     def __init__(self):
@@ -42,11 +42,20 @@ class Detector:
             print("ROI pooled features extracted.")
             box_features = self.roi_heads.box_head(box_features)
             print("Box head features extracted.")
+            # map labels to names (CLASSES contains Visual Genome/COCO style names)
+            class_names = []
+            for i in labels:
+                idx = int(i.item()) if hasattr(i, 'item') else int(i)
+                if idx < len(CLASSES):
+                    class_names.append(CLASSES[idx])
+                else:
+                    class_names.append('unknown')
+
             result = {
                 "features": box_features,
                 "boxes": boxes,
                 "class_labels": labels,
-                "class_names": [COCO_CLASSES[i] if i < len(COCO_CLASSES) else "unknown" for i in labels],
+                "class_names": class_names,
                 "scores": scores
             }
         print("Feature extraction complete.")
