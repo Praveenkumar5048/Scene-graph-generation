@@ -1,0 +1,907 @@
+                                                                  Pattern Recognition 158 (2025) 111039
+
+
+                                                                Contents lists available at ScienceDirect
+
+
+                                                                    Pattern Recognition
+                                                          journal homepage: www.elsevier.com/locate/pr
+
+
+
+
+Attention redirection transformer with semantic oriented learning for
+unbiased scene graph generation
+Ruonan Zhang, Gaoyun An ∗, Yigang Cen, Qiuqi Ruan
+Institute of Information Science, Beijing Jiaotong University, China
+Beijing Key Laboratory of Advanced Information Science and Network Technology, China
+
+
+
+ARTICLE              INFO                              ABSTRACT
+
+Keywords:                                              Scene Graph Generation (SGG) plays an important role in scene understanding because all of the objects
+Scene graph generation                                 and relations in an image can be abstracted into a concise topological graph. Due to the complexity of
+Transformer                                            visual scenes, including mutual occlusion between objects and semantic ambiguity, SGG is still a challenging
+Attention redirection
+                                                       task. Most of the existing models only focused on the context of a single object while contexts provided
+Translation embedding
+                                                       by paired objects are ignored. In this paper, we propose an Attention Redirection Transformer (ART) to
+Scene understanding
+                                                       extract pair-level contexts specifically, which is divided into an attention distraction stage and an attention
+                                                       integration stage. In this way, the attention of the model is forced to be redirected, which explores the implicit
+                                                       information in the background. In addition, to incorporate the semantic information of predicates, a Semantic
+                                                       Oriented Learning Module (SOL) is designed, which may assist in getting better textual semantics and also
+                                                       prompts cross-modal information fusion. At last, a self-diversity driven Dual Translation Embedding Module
+                                                       (DTM) is designed, which refines representations of subject and object and makes them distinct. Experimental
+                                                       results on the Visual Genome dataset demonstrate the effectiveness of our proposed method. Moreover, our
+                                                       method outperforms state-of-the-art methods on the mR@K metric. The source codes are released on Github:
+                                                       https://github.com/Nora-Zhang98/ART-SOL.
+
+
+
+1. Introduction                                                                         divided into ‘‘riding on’’, ‘‘walking on’’, ‘‘standing on’’, etc. The long-
+                                                                                        tailed distribution in VG greatly damages the quality of scene graphs,
+    Scene graphs [1] are attracting increasing attention from                           causing the predicted predicates to be almost head predicates that
+researchers because of the symbolical and easy-understanding graph                      lack rich semantics. To solve this problem, one approach is to make a
+structure. The Scene Graph Generation (SGG) not only bridges the up-                    relatively balanced dataset [6,7]. However, these methods rely heavily
+stream tasks and down-stream tasks, but also connects Computer Vision                   on predefined conditions and prior statistics, which makes them less
+(CV) and Natural Language Processing (NLP). Therefore, scene graphs                     robust. Specifically, when the data distribution changes, the predefined
+are widely used in cross-modal tasks such as image retrieval [2], image                 condition also changes. We try to solve the long-tailed distribution in a
+captioning [3], visual reasoning [4], etc.                                              more essential way, that is, enhancing the role of visual and linguistic
+    Scene graphs are composed of triplets in the form of <subject–                      modality in SGG task. By carefully designing the model structure, the
+predicate–object>. Specifically, a scene graph is a topological graph
+                                                                                        predicate features of different classes are more distinguishable in high-
+structure that explicitly models all elements of a scene, with objects
+                                                                                        dimensional space to alleviate the impact of long-tailed bias. On the
+as nodes and relations between paired objects as edges. A scene graph
+                                                                                        one hand, the feature of visual modality is enhanced by encoding the
+reflects a comprehensive understanding of the whole image, which is
+                                                                                        pair-level context to obtain a more comprehensive understanding of the
+affected by contexts significantly. So how to extract and aggregate the
+                                                                                        scene. On the other hand, linguistic modality is fully facilitated, which
+contextual information is the focus of researchers.
+                                                                                        is more stable and robust compared to various visual appearances.
+    Furthermore, there is a highly-skewed long-tailed distribution in
+the Visual Genome (VG) dataset [5]. Those predicates with dominant                      Thus, our method can also deal with the problem of large intra-
+training samples are called head predicates, which include ‘‘on’’, ‘‘has’’,             class variation and severe inter-class similarity, by introducing stable
+‘‘wearing’’, ‘‘of’’, ‘‘in’’, etc. Most of the head predicates can be divided            linguistic predicate embedding and encouraging visual discrimination
+into more fine-grained ones. For example, the predicate ‘‘on’’ can be                   simultaneously.
+
+
+  ∗ Corresponding author.
+     E-mail addresses: rnzhang@bjtu.edu.cn (R. Zhang), gyan@bjtu.edu.cn (G. An), ygcen@bjtu.edu.cn (Y. Cen), qqruan@bjtu.edu.cn (Q. Ruan).
+
+https://doi.org/10.1016/j.patcog.2024.111039
+Received 16 October 2023; Received in revised form 31 July 2024; Accepted 19 September 2024
+Available online 24 September 2024
+0031-3203/© 2024 Elsevier Ltd. All rights are reserved, including those for text and data mining, AI training, and similar technologies.
+R. Zhang et al.                                                                                                                                     Pattern Recognition 158 (2025) 111039
+
+
+
+
+Fig. 1. Contributions of paired contexts for SGG. (a) Spatial relevance. By extracting the spatial features of union boxes, it is easy for models to determine that the ‘‘surfboard’’ is
+in the woman’s hand, so the relation between ‘‘woman’’ and ‘‘wave’’ is less likely to be ‘‘riding’’, which is useful for understanding the details of the image. (b) Visual-semantic
+similarity. In this image, the visual appearances of ‘‘car1-road’’ and ‘‘car2-road’’ are quite the same, and it is helpful for models to infer that object labels and relations are probably
+similar or identical.
+
+
+    For the visual modality, all the detected image regions need to be                           attention distraction stage and an attention integration stage, which
+considered to obtain a more comprehensive understanding of the scene                             are designed to model the shifting attention scheme explicitly. ART is
+from vision. It is necessary to fully utilize all the available visual cues                      proposed not only to encode the paired-level context, but also facilitate
+to increase the discrimination among similar scenes. Recent works [8–                            this scheme. Specifically, two attention redirecting layers are stacked to
+10] focused on context encoding. However, only the encoding for a                                match stages in the FIT. In the first layer, the attention distracts as much
+single object is paid attention to, while the context of paired objects                          as possible with all the detected entities taken into consideration. The
+is ignored. Such context is quite helpful for understanding the whole                            more dispersed of features, the more information different in regions is
+image, especially for complex visual scenes. The contributions that                              captured, which forms a rough and noisy understanding of the scene.
+paired contexts can offer to assist the SGG task are explored as follows:                        In the second layer, the attention is integrated according to foreground
+    (1) Spatial relevance. As shown in Fig. 1.(a), spatial relevance is                          entities, the irrelevant information is filtered out and the useful infor-
+introduced to help predict the relation between ‘‘woman’’ and ‘‘wave’’                           mation is distilled, thus a more comprehensive understanding of the
+with the location features of paired objects ‘‘surfboard-hand’’ and                              visual scene is formed. In this way, the attention is redirected.
+‘‘hand-woman’’. Otherwise, due to the co-occurrence prior of language,                               For the linguistic modality, there have been some works to in-
+when ‘‘woman’’ and ‘‘wave’’ occur at the same time, the model is easily                          troduce semantic information to SGG. Compared to various visual
+misled to predict ‘‘riding’’, which does not match the current content                           appearances, the linguistic predicate embedding is more stable and
+in the image.                                                                                    robust, which usually corresponds to a single representation. After
+    (2) Visual-semantic similarity. Another example is shown in                                  MOTIFS [8], incorporating word embeddings of object labels into
+Fig. 1.(b). The visual appearances of ‘‘car1-road’’ and ‘‘car2-road’’ are                        the contextual encoding process has become a mainstream method to
+similar, so it is easy to infer the object labels of subject and object                          aggregate semantic information. Recent works, however, have barely
+are probably the same. Furthermore, after the relation ‘‘parked on’’                             explored other forms of semantic representations, except for a few
+between ‘‘car1’’ and ‘‘road’’ is determined, the other relation of ‘‘car2’’
+                                                                                                 exceptions such as Seq2Seq [12], which introduces the learned em-
+and ‘‘road’’ also tends to be similar or identical.
+                                                                                                 beddings of predicates and raises triplet representations. The learned
+    Therefore, the context of paired objects should be modeled specif-
+                                                                                                 predicate embeddings tend to be affected by noises of the dataset, so
+ically and explicitly. We notice that humans are excellent at context
+                                                                                                 a Semantic Oriented Learning Module (SOL) is designed here, which
+encoding. For example, when seeing a partially occluded object, hu-
+                                                                                                 is composed of three steps: an algorithm to extract predicate semantic
+mans can infer what it is from other clues in the scene and the
+                                                                                                 features, a Semantic Oriented Message Passing (SOMP) scheme, and a
+interaction between it and the scene. Thus, we hope to find a human
+                                                                                                 teacher-guided loss that reinforces the flow of semantic information.
+way to understand visual scenes and encode the context. To solve this
+                                                                                                 SOL is devised to emphasize the semantic similarity of paired objects.
+issue, we seek help from cognitive psychology, which studies human
+                                                                                                 Compared with the previous works, we extract the predicate semantic
+higher-level psychological processes, mainly cognitive processes, such
+                                                                                                 features from Glove [13] offline. Then, the word embeddings for each
+as attention, perception, representation, and thinking, etc. Attention is
+                                                                                                 word are assigned weights separately, depending on the importance
+considered as the most basic aspect in scene understanding, especially
+                                                                                                 of different words. For example, ‘‘standing on’’ is divided into two
+for the complex scenes, which manages to obtain rich information and
+                                                                                                 single words, which correspond to different weights. Then the final
+filter it efficiently, and forms a unified understanding effectively. The
+                                                                                                 representation is encoded by the weighted sum of semantic features
+current SGG methods focus on the foreground entities while ignoring
+the information that the background can provide. Moreover, some                                  from different words, which is fused with contexts containing spatial
+detected background entities are probably meaningful entities that are                           relevance from the ART, guiding the model to make a semantic-oriented
+not annotated. We, therefore, hope to explore this implicit information                          prediction.
+efficiently to assist comprehensive scene understanding.                                             After enhancing the representations of both visual and linguistic
+    Inspired by the Feature-Integration Theory (FIT) of attention in the                         modality, the relation feature as the result of cross-modal integration
+field of cognitive psychology [11], we propose an Attention Redirec-                             is further encoded, by enlarging the differences for the entity when
+tion Transformer (ART). The original FIT is divided into two steps to                            acts as different components in a triplet. The original TransH is first
+understand the visual scenes correctly: (1) Feature registration stage.                          proposed in [14] in the field of knowledge graph, which aims to model
+In this stage, low-level features of the scene, such as color, orientation,                      relations as vector translations from the subject to the object within
+spatial frequency, brightness, and direction of movement, are registered                         a hyperplane. The TransH is excellent at handling one-to-many and
+early, automatically, and equally. (2) Attention focused stage. In this                          many-to-one relations. When a specific object acts as the subject or
+stage, these separate features mentioned above are recombined. Fo-                               the object in different triplets, these representations are supposed to be
+cused attention is required when processing the location information,                            distinguishable, which is called self-diversity. Due to the similarity of
+thus the attention is aggregated from separate low-level features and                            scene graphs and knowledge graphs, we propose a self-diversity driven
+a complete recognition of an object is formed afterward. Here in SGG,                            Dual TransH Module (DTM), which models the subject features and
+we extend FIT from object-level perception to scene-level perception,                            the objects features of the same entity respectively to emphasize the
+where the low-level features refer to the context feature and each entity                        distinct characteristics between them.
+has its own context. Two stages correspond to FIT is modeled as an                                   In summary, the main contributions of this paper are as follows:
+
+                                                                                             2
+R. Zhang et al.                                                                                                          Pattern Recognition 158 (2025) 111039
+
+
+    • We summarize the assistance that paired contexts can provide             2.3. Unbiased scene graph generation
+      for the SGG task, namely spatial relevance and visual-semantic
+      similarity. Based on FIT, an Attention Redirection Transformer is            Recent works focus on how to deal with the highly-skewed long-
+      proposed with two stages correspond to it.                               tailed distribution and some unbiased training strategies are explored.
+    • To make the best use of semantic information, a Semantic Ori-            Li et al. [20] designed a predicate probability distribution based loss to
+      ented Learning Module is designed to aggregate predicate seman-          adjust the weight of reweighting strategy. Lin et al. [21] introduced
+      tic information and enrich the paired contexts.                          the knowledge graphs based on atom correlations. Lyu et al. [22]
+    • A self-diversity driven Dual TransH Module is proposed to handle         aimed at differentiating hard-to-distinguish predicates and introduced
+      one-to-many and many-to-one relations and enhance the differ-            an adaptive predicate lattice. Lyu et al. [23] proposed a dual-branch
+      ences between subject features and object features of the same           hybrid learning network to deal with head predicates and tail pred-
+      entity.                                                                  icates separately. Wang et al. [24] introduced hypercomplex vectors
+    • All modules we proposed can be deployed in a plug-and-play               and modeled the diverse relations by quaternion inner product. Here,
+      manner. Experiments are conducted on the most popular and                we propose a self-diversity driven dual TransH module to deal with
+                                                                               one-to-many and many-to-one relations by refining the representation
+      challenging VG dataset, and the results demonstrate our method
+                                                                               of the subject and the object, which helps to relieve the long-tailed bias.
+      can outperform state-of-the-art methods on the mR@K metric.
+
+    The rest of this paper is organized as follows. Section 2 briefly          3. Methodology
+reviews related works on visual context modeling, extra semantic rep-
+resentation, and unbiased scene graph generation. In Section 3, we             3.1. Notations
+introduce the proposed method with three key modules: attention
+redirection transformer, semantic oriented learning module, and self-             The existing works of two-stage SGG methods can be formally
+diversity driven dual TransH module. Extensive experimental results            defined as follows:
+on the Visual Genome dataset are presented in Section 4. Finally, we           𝑃 (𝑆𝐺|𝐼) = 𝑃 (𝐵|𝐼) ∗ 𝑃 (𝑂|𝐵, 𝐼) ∗ 𝑃 (𝑅|𝐵, 𝑂, 𝐼),                           (1)
+conclude paper in Section 5.
+                                                                               where 𝐵, 𝑂 and 𝑅 represent bounding boxes, object labels and predi-
+                                                                               cate labels respectively. 𝐼 denotes the input image and ∗ denotes the
+2. Related work
+                                                                               multiplication operation. We follow this framework and a Faster R-
+                                                                               CNN [25] is employed as our object detector, which outputs visual
+    Existing SGG models can be roughly divided into two categories:            appearance feature 𝑣𝑖 , class confidence scores 𝑐𝑖 , and bounding box
+two-stage methods and one-stage methods. The two-stage methods are             𝑝𝑖 of the 𝑖th proposal simultaneously. Then the semantic embedding
+composed of an object detector and a relation prediction model. Object         corresponding to the object label is obtained by the word embedding
+labels are predicted by the object detector, and then the textual se-          method, which is denoted as 𝑠𝑖 . The object-level context 𝑥𝑖 is initialized
+mantic information of the object labels is fused with extracted contexts       by the concatenation of 𝑣𝑖 , 𝑠𝑖 and 𝑝𝑖 , and then encoded by RNN or GNN.
+to assist relation prediction. One-stage methods are end-to-end, so the        Besides, the global feature of the 𝑖th proposal is defined as 𝑔𝑖 , which is
+object and relation labels are predicted simultaneously.                       extracted by the multi-layer feature maps of FPN in the object detector.
+
+
+2.1. Transformer-based SGG methods
+                                                                               3.2. Overall framework
+
+    With the widespread application of Transformer in computer vision,             As shown in Fig. 2, the entire pipeline of our proposed method is
+it is utilized by some works to encode contexts for SGG, and great             divided into six key modules, which follows the conventional encoder–
+improvement in performance is achieved. Lu et al. [12] utilized the            decoder structure. First, a Faster R-CNN is employed as the object
+history predictions and obtained a conditional probability for the cur-        detector with images fed into. For each object, appearance features,
+rent triplet. Cong et al. [15] viewed SGG as a set prediction problem          coordinates of the bounding box, and object class distribution are
+and proposed an end-to-end method. Khandelwal et al. [16] devised an           predicted.
+iterative refinement transformer and introduced dynamic conditioning.              Then the concatenation of these features is fed to the object encoder
+Garg et al. [17] introduced a deep auto-regressive generation process          in Fig. 2(b) to encode object-level context of a single object. For
+with a hierarchical recurrent architecture. The methods mentioned              simplicity, if there is no specific expression of paired feature, it is a
+above concentrate more on encoding the context of a single object,             feature of a single object. In this part, RNN and GNN are the two
+which ignores the pair-level context encoding. Therefore, an ART is            most frequently used encoders. Here we utilized RNN-based methods,
+proposed to help model this context explicitly.                                i.e. MOTIFS [8] and VCTree [9]. An object decoder follows it, which
+                                                                               can be RNN, GNN, or a simple fully connected layer. The input of the
+                                                                               object decoder is the encoded object-level context, and the output is
+2.2. Extra semantic representation
+                                                                               the refined object label. After object encoder and decoder, pair-level
+                                                                               contexts are encoded by Attention Redirection Transformer (ART) in
+    Recent works have applied various extra representations to guide           Fig. 2(c) and Semantic Oriented Learning Module (SOL) in Fig. 2(d).
+the training process of SGG. For example, after Zellers et al.’s [8]           ART is for the visual modality enhancement by introducing pair-level
+work, nearly all of the existing methods took advantage of statistical         context, which provides a new perspective of scene understanding. SOL
+co-occurrence, which was added to the final predicted distribution.            is designed to utilize the robustness of linguistic modality, limiting the
+Chen et al. [18] modeled this prior knowledge directly and proposed a          diverse visual contexts provided by ART. The related descriptions are
+novel message passing scheme to aggregate this co-occurrence. On the           presented in Sections 3.3 and 3.4.
+other hand, Zareian et al. [19] tried to incorporate knowledge graphs              Similar to the object encoder, the relation encoder is usually RNN
+into scene graphs to prompt the message propagation between entity             or GNN, which is fed by object-level context, visual appearance feature,
+and predicate nodes. Our SOL module introduces predicate semantic              and semantic embedding of the refined object class, thus the relation-
+information to enrich the textual features and guide the whole training        level context is obtained. The order of entities determines whether it
+process.                                                                       acts as the subject or the object, which is important for visual triplet
+
+                                                                           3
+R. Zhang et al.                                                                                                                                 Pattern Recognition 158 (2025) 111039
+
+
+
+
+Fig. 2. The pipeline of our proposed method is composed of six key modules. (a) detects the entities in the image preliminarily. (b) encodes the object-level context and refines the
+object labels based on this context. (c) encodes the pair-level context. (d) utilizes predicate semantic information to supervise the training process. (e) models the representations
+of subject and object respectively. (f) decodes the relation feature into specific predicate categories. The bolded arrows between modules represent the different information flows.
+The black one is the original flow, and the red one is the flow based on predicate semantics obtained from the Semantic Oriented Learning Module. (For interpretation of the
+references to color in this figure legend, the reader is referred to the web version of this article.)
+
+
+detection. To solve this issue, the relation feature, which is regarded as                    object-level context containing paired spatial encoding is denoted as
+the integration of visual and linguistic modalities, is supposed to encode                    𝑥̃ 𝑖 . The process of the attention distraction layer is defined as follows:
+this difference. As Fig. 2(e) shown, a self-diversity driven Dual TransH
+                                                                                              𝑎𝑖𝑗 = 𝑠𝑜𝑓 𝑡𝑚𝑎𝑥([𝑥𝑖 ; 𝑥𝑗 ; 𝑝𝑖𝑗 ]),                                                   (2)
+Module (DTM) is proposed to model representations of the subject and
+the object separately. The details are described in Section 3.5. Here
+a relation decoder is employed, which is a fully-connected layer, as                          𝑚𝑖𝑗 = 𝑥𝑖 𝑝𝑖𝑗 ,                                                                      (3)
+Fig. 2(f) shown. After a softmax layer, the predicate label is predicted.                               ∑
+                                                                                              𝑚̃ 𝑖 = (𝜎( 𝑎𝑖𝑗 𝑚𝑖𝑗 )),                                                              (4)
+3.3. Attention redirection transformer                                                                   𝑗
+
+                                                                                              𝑥̃ 𝑖 = 𝐹 𝐹 𝑁(𝑁𝑜𝑟𝑚(𝑥𝑖 + 𝑚̃ 𝑖 )),                                                     (5)
+     Existing SGG works [8–10] have designed various methods to en-
+code object contexts. Due to the diverse visual appearance of numerous                        where [⋅] denotes the concatenation operation and 𝜎 is the ReLU
+paired objects, it is essential to focus on the contextual encoding of                        activate function.
+                                                                                                  In the attention distraction stage, the context is primary and rough,
+object pairs instead of a single object. However, few works have ex-
+                                                                                              and the noises need to be filtered out. In the attention integration
+plored a contextual encoding method specifically for paired objects. In
+                                                                                              stage, instead of all paired features being fed into the first ART layer,
+Section 1, we have summarized the benefits that pair-level contexts can
+                                                                                              only some sampled pairs that both the subject and object match the
+provide and consider it necessary to model this context explicitly. To
+                                                                                              foreground bounding boxes are taken into consideration in the second
+achieve this goal, the ART is proposed for pair-level context encoding,
+                                                                                              ART layer to distill the useful information. To implement this attention
+which is inspired by FIT in the field of cognitive psychology.
+                                                                                              redirected strategy, a relation matrix 𝐀 is introduced to memorize the
+     FIT is divided into two stages: in the first stage, independent fea-
+                                                                                              sampled pairs. There are only two values in 𝐀, i.e. 1 and 0. For the
+tures such as color, size, orientation, etc, are registered automatically,
+                                                                                              sampled pair of the 𝑖th proposal and the 𝑗th proposal, 𝐀𝑖𝑗 is set to
+and in the second stage, focused attention is required to glue these fea-
+                                                                                              1, and for the background pair, for example, self and self, 𝐀𝑖𝑗 is set
+tures to form an individual object. There exist some attempts to apply
+                                                                                              to 0. The second ART layer only calculates the positional encoding
+FIT to computer vision, such as [26,27]. This theory is always adopted
+                                                                                              of sampled pairs. In this way, the responses of those unrelated pairs
+to fuse different features and form a complete representation of an
+                                                                                              are suppressed, which helps to transfer the attention from global to
+object. In our proposed ART, FIT is applied to model pair-level contexts.
+                                                                                              local. These two ART layers are cascading, and 𝑥̃ 𝑖 is fed into the second
+A global pair-level context corresponds to the complete representation                        layer. The process of the attention integration layer is the same as the
+of an object in FIT, and the object-level context of a single object can                      attention distraction layer.
+be regarded as the low-level feature. The whole ART is divided into                               In the second ART layer, the attention is integrated and a more
+two stages: attention distraction stage and attention integration stage,                      comprehensive context containing paired spatial features is obtained,
+corresponding to feature registration stage and attention focused stage                       thus the spatial relevance is introduced. By utilizing this attention
+respectively in the original theory.                                                          redirected strategy, the attention is forced to transfer from all pairs to
+     In the attention distraction stage, all the detected objects (fore-                      some specific ones. The output of the second stage of ART is denoted
+ground and background) are regarded equally, and parallel attention is                        as 𝑥̂ 𝑖 for the 𝑖th proposal.
+implemented, aiming to capture as much information as possible of the
+scene. Firstly, all proposals are paired, so there are 𝑛2 pairs (including                    3.4. Semantic oriented learning
+self and self) for 𝑛 proposals. For the pair of the 𝑖th proposal and the
+𝑗th proposal, the attention coefficient 𝑎𝑖𝑗 is calculated by object-level                         Enriched semantic information contributes to SGG significantly,
+contexts of 𝑥𝑖 and 𝑥𝑗 . The paired spatial encoding 𝑝𝑖𝑗 is calculated                         but most of the current works only use textual semantics of object
+by a MLP to fuse single spatial features of 𝑝𝑖 and 𝑝𝑗 . After that, the                       labels to supervise the training process, ignoring the comprehensive
+original message 𝑚𝑖𝑗 of each pair is calculated by the product of 𝑥𝑖 and                      semantic features provided by predicates. Here we propose a method
+𝑝𝑖𝑗 . By calculating the weighted sum of messages corresponding to the                        to extract this feature and utilize it to enrich the enhanced contexts
+same subject, i.e., the 𝑖th proposal, 𝑚̃ 𝑖 is obtained, which represents the                  output by ART. Finally, a teacher-student scheme is introduced to assist
+aggregated message of the 𝑖th proposal containing global paired spatial                       the training process. The whole module is composed of three parts as
+features. Finally, a residual connection is adopted, and the refined                          follows:
+
+                                                                                          4
+R. Zhang et al.                                                                                                                      Pattern Recognition 158 (2025) 111039
+
+
+Semantic embedding of predicates
+    In general, the semantic embeddings of predicate classes are all
+obtained from the pre-trained Glove [13] offline. They are more stable
+and less likely to be affected by data noises compared with the learned
+representations. After observing all predicates, we note that they can
+be divided into three types:
+    (1) One word. More than half of the predicates only contain one
+word, such as ‘‘holding’’, ‘‘under’’, ‘‘watching’’, etc. For these predi-
+cates, the predicate semantic embeddings are directly obtained from
+the word embeddings of the corresponding labels.
+    (2) Two words. For those predicates which are composed of more
+than one word, they are split into single words first. Meanwhile, we find
+a phenomenon that for the two-word predicates, it is usually the first
+word that takes on more semantic information, while the next word
+is usually a preposition without much sense, such as ‘‘attached to’’,
+‘‘looking at’’, etc. Based on this observation, as shown in Algorithm
+1, the semantic embeddings of each word in a predicate are fused.
+An extra weight coefficient 𝛼 is introduced to make the model focus
+more on the semantically rich word. For two-word predicates, 𝛼 is the
+coefficient of the former word, and (1 − 𝛼) is for the latter.
+    (3) Three words. As for three-word predicates, the semantic focus is
+often on the middle word such as ‘‘in front of’’. So for these predicates,
+𝛼 is assigned to the middle word while other words are assigned the
+weight of 0.5 ∗ (1 − 𝛼), that is, the first and the last word take on equal       Fig. 3. The upper part is the illustration of semantic oriented message passing and
+weight.                                                                           teacher guided training in SOL. The predicate distribution (green) is aggregated with
+                                                                                  predicate semantic information, and this is used to guide the output distribution based
+                                                                                  on original pair-level contexts (blue) in return. During training, both stages are applied,
+Algorithm 1 Semantic Embeddings of Predicates.                                    while during inference, only the student stage is applied. The lower part shows the
+                                                                                  structure of 𝑀𝐹 in light purple, which denotes the multi-fusion module. ⊗ means the
+   INPUT: All predicate labels 𝑃 in the dataset; pre-trained word                 dot product of them, and linear denotes the linear layer. For the parallel layers ahead,
+   embeddings of Glove.                                                           they project the input features, and for the layers in the back, they are used to fuse
+   OUTPUT: Semantic embeddings of predicate labels.                               these features. (For interpretation of the references to color in this figure legend, the
+                                                                                  reader is referred to the web version of this article.)
+   for each label 𝑝𝑖 ∈ 𝑃 : do
+        Set 𝑠𝑖 as the semantic embedding of 𝑝𝑖 ;
+        Let 𝑠𝑖 = 0.
+        for each word 𝑤𝑗 ∈ 𝑝𝑖 : do                                                Transformer layer is utilized to further encode it. For the triplets of
+            Set 𝛼𝑗 as the weight of corresponding word 𝑤𝑗 .                       the same predicate, the corresponding 𝑢𝑖𝑗 tends to be similar, thus the
+            𝑠 = 𝑊 𝑜𝑟𝑑𝐸𝑚𝑏𝑒𝑑𝑑𝑖𝑛𝑔(𝑤𝑗 )                                               semantic similarity is introduced in our method. The 𝑢𝑖𝑗 is used to
+            𝑠𝑖 ← 𝑠𝑖 + 𝛼𝑗 × 𝑠                                                      predict the predicate distribution independently.
+        end for
+                                                                                  Teacher guided training
+   end for
+                                                                                      Besides various features, knowledge is also needed to get better
+   return 𝑆 = {𝑠1 , 𝑠2 , ..., 𝑠𝑖 , ...}
+                                                                                  predicate representations. From the perspective of knowledge distil-
+                                                                                  lation, for similar tasks, the knowledge extracted by teacher network
+Semantic oriented message passing                                                 may be a good guide. Inspired by this, we propose different schemes
+     The extracted semantic embeddings of predicates are incorporated             for training and inference, which are denoted as the teacher stage
+into the output of ART, and the multi-fusion module [28] (MF) is                  and the student stage separately in the upper part of Fig. 3. The
+adopted to aggregate them. One MF module fuses the enhanced con-                  classifier of student stage learns more effective knowledge from teacher
+texts 𝑥̂ 𝑖 and 𝑥̂ 𝑗 of paired objects, and paired positional embedding            stage, which contains sufficient inter-class information instead of the
+𝑝𝑖𝑗 . The output is denoted as 𝑓1 . Another MF module fuses global                traditional one-hot labels.
+features of all proposals 𝑔 and 𝑝𝑖𝑗 , and the output is denoted as 𝑓2 . The           In the training process, the teacher stage is applied, where the
+semantic embedding of predicate 𝑠𝑖𝑗 is denoted as 𝑓3 . As lower part of           pair-level contexts 𝑢𝑖𝑗 based on the predicate semantics are used to
+Fig. 3 shown, the multi-fusion module is composed of several identical            calculate the predicate distribution. Meanwhile, similar contexts 𝑢𝑖𝑗 ′
+submodules, and then the outputs of each submodule are stacked to-                without this extra semantics incorporation follow the same pattern to
+gether. Specifically, the process of Semantic Oriented Message Passing            calculate the distribution, which is the output of student stage. At this
+is defined as follows:                                                            time, 𝑓3 in Eq. (8) is set to be empty. After these two pair-level contexts,
+                                                                                  i.e. 𝑢𝑖𝑗 and 𝑢′𝑖𝑗 , are obtained, they follow Eqs. (10) and (11) to get the
+𝑓1 = 𝑀𝑢𝑙𝑡𝑖𝐹 𝑢𝑠𝑖𝑜𝑛([𝑥̂ 𝑖 ; 𝑥̂ 𝑗 ], 𝑝𝑖𝑗 ),                               (6)        corresponding distribution 𝑝𝑢 and 𝑝𝑢 ′ . 𝐖𝐮 and 𝐖′𝐮 are used to compress
+                                                                                  the dimension.
+𝑓2 = 𝑀𝑢𝑙𝑡𝑖𝐹 𝑢𝑠𝑖𝑜𝑛(𝑔, 𝑝𝑖𝑗 ),                                            (7)        𝑝𝑢 = 𝐖𝐮 𝑢𝑖𝑗 ,                                                                        (10)
+
+𝑓3 = 𝑠𝑖𝑗 ,                                                             (8)        𝑝′𝑢 = 𝐖′𝐮 𝑢′𝑖𝑗 .                                                                     (11)
+                                                                                      In the inference process, only pair-level contexts without predicate
+𝑢𝑖𝑗 = [𝑓1 ; 𝑓2 ; 𝑓3 ].                                                 (9)
+                                                                                  semantic information 𝑢𝑖𝑗 ′ are used to make the final decision. Namely,
+    The global feature of the 𝑖th proposal is the output concatenation            the stronger teacher stage is only used to guide the student to learn
+of each feature map through an average pooling layer. 𝑢𝑖𝑗 is the pair-            extra knowledge and fine-tune the predictions. More details are shown
+level context of the 𝑖th proposal and the 𝑗th proposal, and then a                in Section 3.6.
+
+                                                                              5
+R. Zhang et al.                                                                                                                                    Pattern Recognition 158 (2025) 111039
+
+
+                                                                                                 a fully connected layer to get the predicate representation 𝑐𝑖𝑗 , which is
+                                                                                                 based on the relation-level context.
+                                                                                                     The predicted distribution from this branch is obtained by Eq. (15).
+                                                                                                 𝐖𝐜 is used to compress the dimension.
+
+                                                                                                 𝑝𝑐 = 𝐖𝐜 𝑐𝑖𝑗 .                                                                    (15)
+
+
+                                                                                                 3.6. Loss
+
+                                                                                                      There exists another branch based on prior knowledge. The output
+                                                                                                 𝑝𝑓 𝑟𝑒𝑞 of this branch is a fixed predicate class distribution after the labels
+                                                                                                 of subject and object are determined. Finally, these three predicate
+                                                                                                 distributions are summed to get a final distribution 𝑝𝑟 .
+
+                                                                                                 𝑝𝑟 = 𝑝𝑢 + 𝑝𝑐 + 𝑝𝑓 𝑟𝑒𝑞 ,                                                          (16)
+
+                                                                                                 𝑝′𝑟 = 𝑝′𝑢 + 𝑝𝑐 + 𝑝𝑓 𝑟𝑒𝑞 .                                                        (17)
+
+                                                                                                     The traditional cross-entropy losses for object and predicate clas-
+Fig. 4. An illustration of TransE, TransH, and our proposed self-diversity driven dual
+TransH in the SGG task. (a) TransE represents the relation as a translation vector from          sification are defined as 𝐿𝑜 and 𝐿𝑝 in Eq. (18). Following previous
+the head entity to the tail entity. (b) TransH first projects the vectors of head and tail       works [6], the hyper-parameters of them are all set to 1. Moreover,
+entities into a learned hyperplane, after that, the operation is the same as TransE. (c)         we add a teacher-guided loss 𝐿𝑡𝑒𝑎 . To balance 𝐿𝑡𝑒𝑎 with other losses,
+Our proposed self-diversity driven dual TransH projects the head and tail entities into
+                                                                                                 a control factor 𝛾 is introduced. Detailed discussion about 𝛾 is shown
+different hyperplanes to enhance the differences between subject feature and object
+feature of the same entity, then the projected vectors are subtracted as TransE.                 in Section 4.4. The total loss of the model in the training process is as
+                                                                                                 follows:
+
+                                                                                                 𝐿𝑡𝑜𝑡𝑎𝑙 = 𝐿𝑜 + 𝐿𝑝 + 𝛾𝐿𝑡𝑒𝑎 ,                                                       (18)
+3.5. Self-diversity driven dual TransH module
+                                                                                                                             ∑            𝑝𝑟
+                                                                                                 𝐿𝑡𝑒𝑎 = 𝐾𝐿(𝑝𝑟 ∥𝑝𝑟 ′ ) =          𝑝𝑟 log        ,                                  (19)
+    Because of the effectiveness of translating embedding, there are                                                                      𝑝𝑟 ′
+some attempts [29] to apply this method to SGG, and here a self-                                 where 𝐿𝑡𝑒𝑎 is calculated by Kullback–Leibler Divergence to evaluate the
+diversity driven dual TransH module is proposed to be a complement                               similarity between 𝑝𝑟 and 𝑝𝑟 ′ as shown in Eq. (19), aiming to fine-tune
+to the original relation encoder. TransH is an improved version of                               the predicted distribution from the student stage with more effective
+TransE [30], which applies well to one-to-one relations but has prob-                            knowledge instead of one-hot labels.
+lems when dealing with many-to-one and one-to-many relations. In                                    During inference, the object class is predicted by the object decoder,
+SGG, there exist many triplets that share the same entity, which may                             and predicate distribution is calculated by the student stage. 𝑂 and 𝑅
+act as the subject and the object in different triplets, so it is necessary to                   are object and relation classes respectively.
+model this diversity of the entity itself in the latent space specifically.
+A simple illustration of TransE, TransH, and our proposed self-diversity                         𝑜𝑖 = 𝑎𝑟𝑔𝑚𝑎𝑥𝑜∈𝑂 (𝑂𝑏𝑗𝐷𝑒𝑐(𝑥𝑖 )),                                                    (20)
+driven dual TransH is shown in Fig. 4. TransH is originally defined
+as 𝑒⊥ = 𝑒 − 𝑤𝑇𝑒 𝑒𝑤𝑒 , where 𝑒 can be replaced by ℎ and 𝑡 for the head                            𝑟𝑖𝑗 = 𝑎𝑟𝑔𝑚𝑎𝑥𝑟∈𝑅 (𝑝′𝑟 ).                                                          (21)
+entity and the tail entity. The score function is defined as follows, where
+𝑑𝑟 denotes the relation vector on the hyperplane, ℎ⊥ and 𝑡⊥ are the
+                                                                                                 4. Experiments
+projected representations:
+
+𝑓𝑟 (ℎ, 𝑡) = ‖             ‖   2
+            ‖ℎ⊥ + 𝑑𝑟 − 𝑡⊥ ‖2 .                                                      (12)             In this section, a series of experiments are conducted to evaluate the
+                                                                                                 effectiveness of our proposed method. All the modules can be plugged
+   In SGG, the subject feature and the object feature of an entity are
+                                                                                                 into different conventional methods to verify the generalization ability.
+supposed to be distinguishable. Inspired by TransH, we propose a self-
+                                                                                                 Furthermore, the details of the training process are described and
+diversity driven method to model these features separately, and our
+                                                                                                 extensive ablation studies are performed.
+module can be expressed as follows:
+
+ℎ𝑖 , 𝑡𝑖 = 𝑠𝑝𝑙𝑖𝑡(𝑅𝑒𝑙𝐸𝑛𝑐([𝑥𝑖 ; 𝑠𝑖 ; 𝑣𝑖 ])),                                           (13)         4.1. Evaluation settings
+where 𝑅𝑒𝑙𝐸𝑛𝑐 is the relation encoder, which can be RNN, GNN, etc.
+The split operation first reshapes the input vector from the dimension                           Dataset
+of 𝑛 × 2𝑟 to 𝑛 × 2 × 𝑟, and then the dimension with the number of 2                                  The widely used dataset, i.e., Visual Genome [5] is adopted to
+will be divided. The split representations are regarded as the subject                           evaluate our method, and the most popular split benchmark [31] is
+feature and the object feature respectively, namely ℎ𝑖 and 𝑡𝑖 for the 𝑖th                        followed, which filters the original dataset by removing the overly
+proposal. Then these features are fused according to paired entities. The                        cluttered label annotations, only leaving most commonly used 150
+encoding process is as follows:                                                                  classes of objects and 50 classes of predicates. The entire dataset is
+                                                                                                 divided into a training set and a testing set, occupying 70% and 30%
+𝑐𝑖𝑗 = 𝐹 𝐹 𝑁((ℎ𝑖 − 𝐖𝐡 ℎ𝑖 ) − (𝑡𝑗 − 𝐖𝐭 𝑡𝑗 )),                                         (14)         images respectively. Also, 5k images are preserved for validation.
+where 𝑖 denotes the subject and 𝑗 denotes the object. 𝐖𝐡 and 𝐖𝐭 are
+projected matrices for them respectively, which do not share param-                              Metrics
+eters, thus features are projected to different hyperplanes. Then the                              Besides the conventional metric Recall@K (R@K), Mean Recall @K
+refined subject features and object features are subtracted and fed into                         (mR@K) is chosen to evaluate the performance of methods. mR@K is
+
+                                                                                             6
+R. Zhang et al.                                                                                                         Pattern Recognition 158 (2025) 111039
+
+
+the average R@K of all predicate classes, so the overall performance           on pre-defined rules or prior statistics, which are overly dependent.
+will not improve so much when only the head predicates perform                 These unbiased methods are not robust enough. Specifically, when the
+excellently but the tail predicates perform badly. Different from R@K,         dataset changes, the pre-defined conditions also change accordingly.
+mR@K treats all kinds of predicates equally. mR@K is the most popular              Different from the methods mentioned above, our method does
+metric to validate the performance of unbiased scene graph generation          not rely on pre-defined conditions to relieve the long-tailed bias. In-
+methods, which is mainly dominated by tail classes. In contrast, R@K           stead, we concentrate more on model design and feature extraction,
+is dominated by head classes. Due to the different focus of these two          and performances show that our method also achieves competitive
+metrics, we used another metric F@K [6] to jointly evaluate them. F@K          performance on the unbiased metric mR@K, demonstrating that the
+is the harmonic average of mR@K and R@K.                                       long-tailed distribution can be alleviated by fine-tuned features and
+                                                                               well-designed model structures. Our method can be applied to various
+Tasks                                                                          off-the-shelf methods in a plug-and-play manner, which brings better
+    We implement three popular subtasks in SGG: (1) Predicate Classi-          robustness, practicality, and generalization. Moreover, when compared
+fication (PredCls) predicts predicate labels with ground truth bounding        with model-agnostic methods, our method achieves the comparable
+boxes and object labels given. (2) Scene Graph Classification (SGCls)          performance.
+predicts object and predicate labels simultaneously only with object               (3) By employing conventional methods (MOTIFS and VCTree),
+localization given. (3) Scene Graph Detection (SGDet) requires the             we note that our method adapts well to them, which shows better
+model to generate a scene graph from scratch, which means the model            generalization ability among different methods and different subtasks.
+is required to recognize both object and predicate labels and localize             In Table 2, more comprehensive comparisons are conducted among
+the objects at the same time. Both SGCls and SGDet rely heavily                our method and some state-of-the-art methods. The analysis from three
+on the object labels predicted by the object detector, because since           aspects is shown as follows.
+MOTIFS [8], the co-occurrence of paired object labels has become an                (1) As shown in Table 2, the specific and model-agnostic methods
+important prior knowledge for determining the predicates.                      are compared. It is obvious that when the mR@K is high, the R@K is
+                                                                               low, so it is almost impossible to achieve the best of R@K and mR@K
+4.2. Implementation details                                                    simultaneously. The R@K is mainly dominated by head predicates and
+                                                                               the mR@K is mainly dominated by tail predicates, so besides these two
+    Following previous works [32], a Faster R-CNN [25] which is pre-           metrics, F@K is introduced additionally to be fair.
+trained on the VG dataset is utilized as the object detector in our                (2) For the methods that perform better on R@K, such as RelMN
+method. The object detector utilizing ResNeXt-101-FPN reaches 38.52
+                                                                               [36], they tend to propose elaborate and efficient model structures but
+mAP on the training set and 28.14 mAP on the testing set. During
+                                                                               are easily affected by long-tailed bias. For the methods that perform
+training, we freeze the parameters of Faster R-CNN. A SGD optimizer
+                                                                               better on mR@K, such as NICE [44], they tend to make a relatively
+with an initial learning rate of 0.001 is applied, using momentum as
+                                                                               balanced data distribution, which is the focus of nearly all the unbiased
+0.9. The weight coefficient 𝛼 to measure the importance of words in a
+                                                                               scene graph generation methods. We, however, try to relieve the long-
+predicate is set to 0.7. The dimension of Glove that we utilized is 200
+                                                                               tailed bias by making more distinguishable relation representations in
+for each word. If the word in a predicate cannot be found in Glove, it
+                                                                               the prediction space, which is encoded by paired spatial relevance,
+will be initialized by Gaussian distribution 𝑁(0, 1). In the VG dataset,
+                                                                               semantic information of predicates, and subject feature and object
+the maximum number of words contained in the predicate is 3. In
+                                                                               feature modeled on different hyperplanes. Our method achieves state-
+practical applications, for predicates with more than 3 words, all the
+                                                                               of-the-art performance on the mR@K metric, which demonstrates the
+words will be assigned equal weights as 1∕𝑛, where 𝑛 is the number of
+                                                                               validity of this way.
+words. To make a fair comparison, the batch size is set as 8 as in many
+                                                                                   (3) Compared with other methods, our method also achieves com-
+previous works. In SGDet, the ground truth bounding boxes are added
+                                                                               petitive performance on F@50/100. In the future, we will further
+in the training process in case some are missing. Following previous
+                                                                               explore ensemble learning to promote mR@K, while reserving the R@K
+works [20], our ART-SOL is conducted on two commonly used baseline
+                                                                               performance.
+networks, MOTIFS [8] and VCTree [9], in a plug-and-play manner. Our
+code is on top of Zhang et al.’s work [6]. All experiments are conducted
+on a NVIDIA GeForce Titan.                                                     4.4. Ablation studies
+
+
+4.3. Comparisons with state-of-the-art methods                                     The efficacy of our proposed method is shown in this section, and
+                                                                               ablation analysis from three aspects is shown as follows.
+    Our proposed method is evaluated on VG dataset as Table 1 shown.               (1) As shown in Table 3, the performances of each module are
+Experimental analysis from three aspects is shown as follows.                  demonstrated, which are based on VCTree for SGCls. SOL is composed
+    (1) Specific strong methods focusing on different aspects are com-         of three steps, which are regarded as a complete module to conduct ex-
+pared comprehensively. For example, FC-SGG [33] utilizes CNN to                periments. SOL and ART can only be deployed simultaneously, because
+model relationships directly, RU-Net [34] improves the heterogeneous           pair-level context encoding requires ART to incorporate paired spatial
+message passing scheme, SQUAT [39] learns to select relevant object            features and SOL to incorporate predicate semantic embeddings. When
+pairs and disambiguate them via diverse contextual interaction, and            adopted as a single module, we note that ART promotes more perfor-
+B3C [49] proposes a simple but effective class correlation correction          mance, which proves the importance of spatial information provided
+to aggregate dependency knowledge among various classes, etc. We               by paired objects. The experimental results illustrate the effectiveness
+notice that the performance of our method is not the best on mR@100            of ART, DTM, and SOL, which are all helpful in boosting the metrics.
+for SGDet, which is lower than SGTR [35]. This may be because the              When the three modules are deployed simultaneously, the performance
+object detector of SGTR is DETR [50], which outperforms the Faster R-          is the best.
+CNN we used in complex scenes. Except for SGDet, our method achieves               (2) For ART, some detailed experiments are conducted. As men-
+state-of-the-art performance for PredCls and SGCls.                            tioned in Section 1, inspired by FIT, ART is a two-stage module, namely
+    (2) For model-agnostic methods, a variety of methods are compared.         the attention distraction stage and the attention integration stage. By
+All methods including TDE [32], NICE [44], HML [45] and PPDL [20],             removing the attention redirected strategy and considering all pairs
+etc, are unbiased strategies to solve the long-tailed bias in VG. For          in the two stages, these stages are the same, which is defined as a
+nearly all the methods, the original data distribution is changed based        one-stage ART. Both ARTs are composed of two layers.
+
+                                                                           7
+R. Zhang et al.                                                                                                                                          Pattern Recognition 158 (2025) 111039
+
+Table 1
+Performance (%) of our method and the state-of-the-art methods on the VG dataset. The best result is marked in bold and the second best result is marked with underline.
+ Models                                Source            Predicate classification                        Scene graph classification                     Scene graph detection
+                                                         mR@20          mR@50             mR@100         mR@20           mR@50         mR@100           mR@20        mR@50         mR@100
+ FC-SGG [33]                           CVPR21            4.9            6.3               7.1            2.9             3.7           4.1              2.7          3.6           4.2
+ RU-Net [34]                           CVPR22            –              –                 24.2           –               –             14.6             –            –             10.8
+ SGTR [35]                             CVPR22            –              –                 –              –               –             –                –            15.8          20.1
+ AC-GP [21]                            PR22              –              17.6              19.5           –               7.9           8.5              –            4.6           5.5
+ RelMN [36]                            PR22              –              21.0              22.3           –               11.8          12.3             –            7.8           8.9
+ Het-SGG [37]                          AAAI23            –              31.6              33.5           –               17.2          18.7             –            12.2          14.4
+ CV-SGG [38]                           CVPR23            –              32.6              36.2           –               –             –                –            14.6          17.0
+ SQUAT [39]                            CVPR23            25.6           30.9              33.4           14.4            17.5          18.8             10.6         14.1          16.5
+ TGIR [40]                             IJCV23            12.7           16.1              17.2           7.6             9.2           9.7              4.4          6.4           7.9
+ RAR [41]                              WACV24            32.8           37.0              39.4           18.9            21.7          23.1             12.4         16.1          18.6
+                  TDE [32]             CVPR20            18.5           25.5              29.1           9.8             13.1          14.9             5.8          8.2           9.8
+                  RTPB [42]            AAAI22            28.8           35.3              37.7           16.3            19.4          20.6             9.7          13.1          15.5
+                  HLB [43]             ACMMM22           –              15.4              16.7           –               8.9           9.4              –            7.2           8.4
+                  NICE [44]            CVPR22            –              29.9              32.3           –               16.6          17.9             –            12.2          14.4
+                  PPDL [20]            CVPR22            –              32.2              33.3           –               17.5          18.2             –            11.4          13.5
+                  HML [45]             ECCV22            30.1           36.3              38.7           17.1            20.8          22.1             10.8         14.6          17.3
+ MOTIFS           IETrans [6]          ECCV22            –              35.8              39.1           –               21.5          22.8             –            15.5          18.0
+                  Inf [46]             CVPR23            –              24.7              30.7           –               14.5          17.4             –            9.4           11.7
+                  CFA [47]             ICCV23            –              35.7              38.2           –               17.0          18.4             –            13.2          15.5
+                  EICR [48]            ICCV23            –              34.9              37.0           –               20.8          21.8             –            15.5          18.2
+                  CCIM [24]            PR23              12.5           15.8              17.1           7.4             9.2           9.8              5.6          7.7           9.0
+                  B3C [49]             PR24              31.6           36.7              38.7           17.7            20.1          21.0             12.5         16.1          18.3
+                  ART-SOL(Ours)        –                 32.1           39.1              42.2           19.2            23.0          24.1             12.2         16.2          19.3
+                  TDE [32]             CVPR20            18.4           25.4              28.7           8.9             12.2          14.0             6.9          9.3           11.1
+                  RTPB [42]            AAAI22            27.3           33.4              35.6           20.6            24.5          25.8             9.6          12.8          15.1
+                  HLB [43]             ACMMM22           –              17.5              18.8           –               12.0          12.7             –            7.5           8.8
+                  NICE [44]            CVPR22            –              30.7              33.0           –               19.9          21.3             –            11.9          14.1
+                  PPDL [20]            CVPR22            –              33.3              33.8           –               21.8          22.4             –            11.3          13.3
+                  HML [45]             ECCV22            31.0           36.9              39.2           20.5            25.0          26.8             10.1         13.7          16.3
+ VCTree           IETrans [6]          ECCV22            –              37.0              39.7           –               19.9          21.8             –            12.0          14.9
+                  Inf [46]             CVPR23            –              28.1              30.7           –               17.3          19.4             –            10.4          11.9
+                  CFA [47]             ICCV23            –              34.5              37.2           –               19.1          20.8             –            13.1          15.5
+                  EICR [48]            ICCV23            –              35.6              37.9           –               26.2          27.4             –            15.2          17.5
+                  CCIM [24]            PR23              12.9           16.5              17.8           8.3             10.2          10.9             5.4          7.3           8.8
+                  B3C [49]             PR24              31.2           36.5              38.2           21.1            24.3          25.4             12.1         15.4          17.2
+                  ART-SOL(Ours)        –                 30.6           38.8              41.7           21.7            26.8          28.6             11.1         15.1          18.0
+
+
+Table 2
+A more comprehensive comparison between our method and some state-of-the-art methods on the VG dataset (%).
+ Models                           Predicate classification                                Scene graph classification                          Scene graph detection
+                                  mR@50/100           R@50/100         F@50/100           mR@50/100          R@50/100           F@50/100      mR@50/100          R@50/100        F@50/100
+ AC-GP [21]                       17.6/19.5           62.1/64.7        27.4/30.0          7.9/8.5            27.7/28.6          12.3/13.1     4.6/5.5            18.1/20.4       7.3/8.7
+ RelMN [36]                       21.0/22.3           67.7/69.3        32.1/33.7          11.8/12.3          40.2/41.1          18.2/18.9     7.8/8.9            28.8/32.9       12.3/14.0
+ MOTIFS [8]                       15.2/16.2           64.0/66.0        24.6/26.0          8.7/9.3            38.0/38.9          14.2/15.0     6.7/7.7            31.0/35.1       11.0/12.6
+ MOTIFS+NICE [44]                 29.9/32.3           55.1/57.1        38.8/41.3          16.6/17.9          33.1/34.0          22.1/23.5     12.2/14.4          27.8/31.8       17.0/19.8
+ MOTIFS+Inf [46]                  24.7/30.7           51.5/55.1        33.4/39.4          14.5/17.4          32.2/33.8          20.0/23.0     9.4/11.7           23.9/27.1       13.5/16.3
+ MOTIFS+ART-SOL(Ours)             39.1/42.2           30.8/33.0        34.5/37.0          23.0/24.1          17.7/18.6          20.0/21.0     16.2/19.3          12.8/15.3       14.3/17.1
+ VCTree [9]                       16.3/17.7           64.5/66.5        26.0/28.0          8.9/9.5            39.3/40.2          14.5/15.4     6.7/8.0            30.2/34.6       11.0/13.0
+ MOTIFS+NICE [44]                 30.7/33.0           55.0/56.9        39.4/41.8          19.9/21.3          37.8/39.0          26.1/27.6     11.9/14.1          27.0/30.8       16.5/19.3
+ VCTree+Inf [46]                  28.1/30.7           59.5/60.1        38.2/40.6          17.3/19.4          40.7/41.6          24.3/26.5     10.4/11.9          27.7/30.1       15.1/17.1
+ VCTree+ART-SOL(Ours)             38.8/41.7           30.5/32.3        34.2/36.4          26.8/28.6          19.0/20.3          22.2/23.7     15.1/18.0          12.1/14.6       13.4/16.1
+
+
+Table 3                                                                                               Table 4
+Ablation study of all modules (%).                                                                    Ablation study of one-stage ART (1-ART) and two-stage ART (2-ART) (%).
+ ART              DTM        SOL              mR@20             mR@50              mR@100              Model                      PredCls                SGCls                  SGDet
+                                                                                                                                  mR@50/100              mR@50/100              mR@50/100
+                                              –                 19.9               21.8
+ ✓                                            20.1              23.8               25.3                1-ART                      37.3/40.1              21.9/23.2              15.8/18.3
+                  ✓                           18.7              23.2               24.6                2-ART                      38.1/40.8              22.2/23.4              16.0/18.6
+ ✓                ✓                           20.9              25.3               27.0                1-ART + DTM                37.7/40.5              22.1/23.6              15.6/18.4
+ ✓                           ✓                21.5              25.9               27.4                2-ART + DTM                38.3/41.5              22.5/24.0              16.1/18.8
+ ✓                ✓          ✓                21.7              26.8               28.6
+
+
+
+                                                                                                      an image, the number of detected bounding boxes per image is set to
+   The effects of one-stage and two-stage ARTs on final performances                                  80, so the size of the relation matrix in ART is 80 × 80 with all elements
+are explored as Table 4 shown, which are conducted on MOTIFS. Dur-                                    as 1, then spatial encodings based on this huge matrix are fed into
+ing training, we note that one-stage ART tends to gradient explosion,                                 ART, which always makes a nan error at the beginning of the training
+especially for SGDet, leading to a quite difficult optimization. The                                  process. In contrast, two-stage ART is more stable to train and achieves
+reason may be that the SGDet is too computational to be trained. In                                   better performance, because only sampled pair encoding is conducted.
+
+                                                                                                 8
+R. Zhang et al.                                                                                                                               Pattern Recognition 158 (2025) 111039
+
+
+
+
+Fig. 5. Influence of different values of control factor 𝛾. All results are carried out for PredCls on the VG dataset. (a), (b) and (c) are based on MOTIFS, and (d), (e) and (f) are
+based on VCTree.
+
+
+                                                                                             4.5. Qualitative analysis
+
+                                                                                             Visualization of R@K
+                                                                                                 Recall@100s of each predicate class of MOTIFS and VCTree and
+                                                                                             these methods equipped with our proposed ART-SOL are shown in
+                                                                                             Fig. 7. In Fig. 7(a), the results based on MOTIFS for PredCls are shown,
+                                                                                             and in Fig. 7(b), the results based on VCTree for the same subtask are
+                                                                                             shown. Both MOTIFS and VCTree are re-implemented on the codebase
+                                                                                             of [32].
+                                                                                                 There exists a common phenomenon among the unbiased meth-
+                                                                                             ods [6,20], that is, when the R@Ks of tail predicates are raised, the
+                                                                                             performances of head predicates are hurt. It is reasonable because the
+Fig. 6. Inference time comparison of Transformer, MOTIFS, MOTIFS-ART, VCTree, and
+VCTree-ART.
+                                                                                             head predicates with a large number of training samples are dominant,
+                                                                                             models well trained by these samples tend to predict head predicates.
+                                                                                             After debiasing methods are employed, the head predicates are divided
+    (3) The parameter analysis of 𝛾 that controls loss weight is shown in                    into more fine-grained ones, which are usually body or tail predicates.
+Fig. 5, which is evaluated on both MOTIFS and VCTree for PredCls with                        So the R@Ks of the tail increase while the R@Ks of the head decrease.
+                                                                                             Instead of balancing the distribution in the dataset as many debiasing
+ART and DTM equipped. A large 𝛾 indicates that the final prediction
+                                                                                             methods, our method tries to learn more diverse representations to
+distribution is much influenced by predicate semantics. For VCTree,
+                                                                                             deal with the long-tailed bias. The results in Fig. 7 demonstrate our
+as 𝛾 increases, the overall experimental results increase gradually. For
+                                                                                             method could generate more detailed predicates. For body and tail
+MOTIFS, the performance shows the same trend as VCTree at the
+                                                                                             predicates, our method is superior to the baselines, but for the head, our
+beginning but starts to decrease at a certain point, which is more
+                                                                                             method is inferior. The reasons are explained above. For MOTIFS-based
+sensitive to changes of 𝛾. This may be because the structure of MOTIFS
+                                                                                             methods, as one of the least frequent predicates ‘‘flying on’’, our method
+is simpler, so it is easily influenced by the changes of hyper-parameters.
+                                                                                             promotes the R@100 from 0 to 0.970. It nearly detects all of the testing
+The structure of VCTree is more complex, and even if 𝛾 is changed                            samples, which demonstrates the great performance for body and tail
+significantly, it tends to be less influenced. So for simple models, it                      predicates.
+is suitable to choose a smaller 𝛾, while for complex models, a larger
+𝛾 may achieve better performance. As Fig. 5 shown, for MOTIFS, the
+                                                                                             Visualization of image
+best performance is achieved when 𝛾 is set to 20, and for VCTree it is
+                                                                                                 The visualization of several samples is shown in Fig. 8. It demon-
+set to 30.
+                                                                                             strates our method does not overfit the tail predicates, which will
+   (4) The inference time when deployed with ART is shown in Fig. 6.
+                                                                                             introduce another bias, such as ‘‘bag attached to wheel’’, ‘‘player play-
+The experiments are conducted on Transformer, MOTIFS, MOTIFS
+                                                                                             ing arm’’ and ‘‘shirt looking at head’’ predicted by the unbiased method
+deployed with ART, VCTree and VCTree deployed with ART, which
+                                                                                             being compared. In contrast, the predictions of our method are ‘‘bag
+are compared on the same server with an NVIDIA GeForce RTX 3090                              near wheel’’, ‘‘player has arm’’ and ‘‘shirt under head’’. ‘‘attached to’’,
+GPU and under PredCls task on VG dataset with same hyperparameters.                          ‘‘playing’’ and ‘‘looking at’’ are all body and tail predicates, but they are
+Compared with the Transformer, the inference time of MOTIFS-ART                              inappropriate here, and the head predicates predicted by our method
+increases a little more by 5.9%. ART is not utilized individually, but                       are fitter for the image contents. Furthermore, more fine-grained re-
+in a plug-and-play manner. Considering the original complexity of                            lationships are generated by our method such as ‘‘glove on hand’’ v.s.
+BiLSTM in MOTIFS, it may demonstrate the similar complexity of                               ‘‘glove covering hand’’ in the second row. In short, our method predicts
+ART and Transformer. The VCTree method costs more inference time                             more fine-grained predicates with fewer wrong predictions. The key
+than MOTIFS and Transformer. For VCTree-ART, it increases by 9.1%                            reason is that our method introduces richer contexts and features,
+compared with the VCTree baseline. This rate is similar to MOTIFS v.s.                       which make predicate representations in high-dimension prediction
+MOTIFS-ART.                                                                                  space more distinguishable.
+
+                                                                                         9
+R. Zhang et al.                                                                                                                                     Pattern Recognition 158 (2025) 111039
+
+
+
+
+Fig. 7. Recall@100 of all predicate classes of baseline methods and baseline methods equipped with our method on the VG dataset. (a) MOTIFS and MOTIFS+ART-SOL(Ours) for
+PredCls. (b) VCTree and VCTree+ART-SOL(Ours) for PredCls.
+
+
+
+
+                                                                                                   Fig. 9. Effectiveness of ART-SOL on fine-grained predicates. The top 11 most frequent
+Fig. 8. Qualitative results of the unbiased method [6] (left) and our method (right).              predicates in the relation predictions are shown, and the percentages are the proportion
+Both methods are based on MOTIFS [8] for PredCls. Green arrows denote the right                    among these 11 predictions. The left pie charts shows the predicted distribution of
+predictions (GT or relations matching image content), red arrows denote the wrong                  MOTIFS equipped with ART-SOL, and the right pie charts are of MOTIFS equipped
+predictions (relations not matching GT or image content), and pink arrows denote                   with the unbiased method [6]. Percentages below 3% are not displayed.
+the more fine-grained predictions based on right predictions. This way of determining
+whether the predicted relation is right is due to many missing annotations in the
+dataset. For the first row, for example, there is only one GT relation. (For interpretation
+of the references to color in this figure legend, the reader is referred to the web version        equipped with [6], they are regarded as independent predicates with
+of this article.)                                                                                  no semantic connection.
+
+                                                                                                   4.6. Advantages and limitations
+Visualization of fine-grained predicates
+                                                                                                       Our method does not rely on statistics priors and is model-agnostic,
+   As Fig. 9 shown, effectiveness of our method to make more fine-
+                                                                                                   which demonstrates good generalization. Meanwhile, we attempt to
+grained predictions is demonstrated. The top 11 most frequent pre-
+                                                                                                   introduce a human cognitive way to assist scene understanding, and
+dictions are shown with percentages. The left pie charts show the
+                                                                                                   the experimental results show the effectiveness of our method. On the
+experiments of MOTIFS equipped with our method, and the right pie                                  other hand, our method still needs to optimize complexity further. ART
+charts are MOTIFS with the off-the-shelf unbiased method [6]. For the                              is proposed to obtain a sufficient comprehensive understanding of the
+predicate ‘‘on’’, our method divides it into more various predictions.                             scene with all detected entities taken into consideration in the first
+The prediction percentage of our method for ‘‘on’’ is 16.5%, and the                               stage, which proves to be effective but improves the complexity.
+method being compared is 52.7%. For the predicate ‘‘in’’, our method                                   Considering the potential overlap among the detected entities, we
+shows the similar phenomenon. Thanks to the robust textual semantics                               re-examine the structure of ART. It may not be necessary to feed
+provided by SOL, some predicates with similar semantics tend to be                                 all entities into ART, a proper filter mechanism may be helpful to
+consistent, such as ‘‘wearing’’ and ‘‘wears’’. The percentages of these                            reduce the complexity and makes the whole method more lightweight,
+two predicates are top2 and top3 of our method, while in the MOTIFS                                which will lead the future work. Moreover, it would be beneficial to
+
+                                                                                              10
+R. Zhang et al.                                                                                                                                 Pattern Recognition 158 (2025) 111039
+
+
+explore the potential of one-stage methods. Observing the improvement                           [5] R. Krishna, Y. Zhu, O. Groth, J. Johnson, K. Hata, J. Kravitz, S. Chen, Y.
+performance of ART, it is a promising direction to deal with the long-                              Kalantidis, L.-J. Li, D.A. Shamma, et al., Visual genome: Connecting language
+                                                                                                    and vision using crowdsourced dense image annotations, Int. J. Comput. Vis.
+tailed bias by imitating human behaviors. How to make models think
+                                                                                                    123 (1) (2017) 32–73.
+and understand as a human will be a future research direction.                                  [6] A. Zhang, Y. Yao, Q. Chen, W. Ji, Z. Liu, M. Sun, T.-S. Chua, Fine-grained
+                                                                                                    scene graph generation with data transfer, in: European Conference on Computer
+5. Conclusion                                                                                       Vision, Springer, 2022, pp. 409–424.
+                                                                                                [7] Y. Guo, L. Gao, X. Wang, Y. Hu, X. Xu, X. Lu, H.T. Shen, J. Song, From
+                                                                                                    general to specific: Informative scene graph generation via balance adjustment,
+    In this work, a method using richer features for SGG is proposed,                               in: Proceedings of the IEEE/CVF International Conference on Computer Vision,
+aiming to generate more fine-grained predicates. Instead of relying                                 2021, pp. 16383–16392.
+heavily on the pre-defined rules and prior statistics, our method is                            [8] R. Zellers, M. Yatskar, S. Thomson, Y. Choi, Neural motifs: Scene graph parsing
+                                                                                                    with global context, in: Proceedings of the IEEE Conference on Computer Vision
+more robust and can be deployed into off-the-shelf methods in a                                     and Pattern Recognition, 2018, pp. 5831–5840.
+plug-and-play manner. By imitating human cognition ways, an At-                                 [9] K. Tang, H. Zhang, B. Wu, W. Luo, W. Liu, Learning to compose dynamic tree
+tention Redirection Transformer is proposed to enhance the visual                                   structures for visual contexts, in: Proceedings of the IEEE/CVF Conference on
+modality by encoding the pair-level contexts explicitly. Moreover, a                                Computer Vision and Pattern Recognition, 2019, pp. 6619–6628.
+                                                                                               [10] X. Lin, C. Ding, J. Zeng, D. Tao, Gps-net: Graph property sensing network
+Semantic Oriented Learning Module is designed, which enhances the
+                                                                                                    for scene graph generation, in: Proceedings of the IEEE/CVF Conference on
+linguistic modality by fully utilizing the textual semantics. The teacher                           Computer Vision and Pattern Recognition, 2020, pp. 3746–3753.
+stage incorporates predicate semantic information and guides the final                         [11] A.M. Treisman, G. Gelade, A feature-integration theory of attention, Cogn.
+predictions, thus the semantic similarity is introduced. Finally, a self-                           Psychol. 12 (1) (1980) 97–136.
+                                                                                               [12] Y. Lu, H. Rai, J. Chang, B. Knyazev, G. Yu, S. Shekhar, G.W. Taylor, M.
+diversity driven Dual TransH module is proposed to model the subject
+                                                                                                    Volkovs, Context-aware scene graph generation with seq2seq transformers, in:
+and object features respectively and fine-tune the predicate representa-                            Proceedings of the IEEE/CVF International Conference on Computer Vision,
+tions. Our proposed method achieves competitive performance on the                                  2021, pp. 15931–15941.
+VG benchmark under the existing evaluation metric mR@K for all the                             [13] J. Pennington, R. Socher, C.D. Manning, Glove: Global vectors for word represen-
+                                                                                                    tation, in: Proceedings of the 2014 Conference on Empirical Methods in Natural
+subtasks. Furthermore, ablation studies are conducted to demonstrate
+                                                                                                    Language Processing, EMNLP, 2014, pp. 1532–1543.
+the effectiveness of all modules. Visualization results show that our                          [14] Z. Wang, J. Zhang, J. Feng, Z. Chen, Knowledge graph embedding by translating
+method can generate fine-grained predictions not by overfitting the tail                            on hyperplanes, in: Proceedings of the AAAI Conference on Artificial Intelligence,
+classes. In the future, we will try to encode these rich features and                               Vol. 28, 2014.
+                                                                                               [15] Y. Cong, M.Y. Yang, B. Rosenhahn, Reltr: Relation transformer for scene graph
+contexts in a more lightweight way. Observing the good performance of
+                                                                                                    generation, IEEE Trans. Pattern Anal. Mach. Intell. 45 (9) (2023) 11169–11183.
+the FIT-based ART, we will further attempt to model the understanding                          [16] S. Khandelwal, L. Sigal, Iterative scene graph generation, Adv. Neural Inf.
+process from the perspective of human cognition.                                                    Process. Syst. 35 (2022) 24295–24308.
+                                                                                               [17] S. Garg, H. Dhamo, A. Farshad, S. Musatian, N. Navab, F. Tombari, Uncondi-
+                                                                                                    tional scene graph generation, in: Proceedings of the IEEE/CVF International
+CRediT authorship contribution statement
+                                                                                                    Conference on Computer Vision, 2021, pp. 16362–16371.
+                                                                                               [18] T. Chen, W. Yu, R. Chen, L. Lin, Knowledge-embedded routing network for scene
+   Ruonan Zhang: Methodology, Writing – original draft. Gaoyun An:                                  graph generation, in: Proceedings of the IEEE/CVF Conference on Computer
+Funding acquisition, Writing – review & editing. Yigang Cen: Funding                                Vision and Pattern Recognition, 2019, pp. 6163–6171.
+                                                                                               [19] A. Zareian, S. Karaman, S.-F. Chang, Bridging knowledge graphs to generate
+acquisition. Qiuqi Ruan: Funding acquisition.                                                       scene graphs, in: European Conference on Computer Vision, Springer, 2020, pp.
+                                                                                                    606–623.
+Declaration of competing interest                                                              [20] W. Li, H. Zhang, Q. Bai, G. Zhao, N. Jiang, X. Yuan, PPDL: Predicate probability
+                                                                                                    distribution based loss for unbiased scene graph generation, in: Proceedings of
+                                                                                                    the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2022,
+    The authors declare that they have no known competing finan-                                    pp. 19447–19456.
+cial interests or personal relationships that could have appeared to                           [21] B. Lin, Y. Zhu, X. Liang, Atom correlation based graph propagation for scene
+influence the work reported in this paper.                                                          graph generation, Pattern Recognit. 122 (2022) 108300.
+                                                                                               [22] X. Lyu, L. Gao, P. Zeng, H.T. Shen, J. Song, Adaptive fine-grained predicates
+                                                                                                    learning for scene graph generation, IEEE Trans. Pattern Anal. Mach. Intell.
+Data availability                                                                                   (2023).
+                                                                                               [23] C. Zheng, L. Gao, X. Lyu, P. Zeng, A. El Saddik, H.T. Shen, Dual-branch hybrid
+    Data will be made available on request.                                                         learning network for unbiased scene graph generation, IEEE Trans. Circuits Syst.
+                                                                                                    Video Technol. (2023).
+                                                                                               [24] Z. Wang, X. Xu, Y. Luo, G. Wang, Y. Yang, Hypercomplex context guided
+Acknowledgments                                                                                     interaction modeling for scene graph generation, Pattern Recognit. 141 (2023)
+                                                                                                    109634.
+                                                                                               [25] S. Ren, K. He, R. Girshick, J. Sun, Faster r-cnn: Towards real-time object
+   This work was supported by the Fundamental Research Funds for
+                                                                                                    detection with region proposal networks, Adv. Neural Inf. Process. Syst. 28
+the Central Universities, China (2024YJS049) and the National Natural                               (2015).
+Science Foundation of China (62072028, and 62473035).                                          [26] S. Vasamsetti, S. Setia, N. Mittal, H.K. Sardana, G. Babbar, Automatic underwater
+                                                                                                    moving object detection using multi-feature integration framework in complex
+                                                                                                    backgrounds, IET Comput. Vis. 12 (6) (2018) 770–778.
+References
+                                                                                               [27] Z. Yao, W. Yi, Bionic vision system and its application in license plate
+                                                                                                    recognition, Nat. Comput. 19 (1) (2020) 199–209.
+ [1] J. Johnson, R. Krishna, M. Stark, L.-J. Li, D. Shamma, M. Bernstein, L. Fei-Fei,          [28] F.Z. Zhang, D. Campbell, S. Gould, Efficient two-stage detection of human-object
+     Image retrieval using scene graphs, in: Proceedings of the IEEE Conference on                  interactions with a novel unary-pairwise transformer, in: Proceedings of the
+     Computer Vision and Pattern Recognition, 2015, pp. 3668–3678.                                  IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2022, pp.
+ [2] S. Schuster, R. Krishna, A. Chang, L. Fei-Fei, C.D. Manning, Generating semanti-               20104–20112.
+     cally precise scene graphs from textual descriptions for improved image retrieval,        [29] Z.-S. Hung, A. Mallya, S. Lazebnik, Contextual translation embedding for visual
+     in: Proceedings of the Fourth Workshop on Vision and Language, 2015, pp.                       relationship detection and scene graph generation, IEEE Trans. Pattern Anal.
+     70–80.                                                                                         Mach. Intell. 43 (11) (2020) 3820–3832.
+ [3] S. Chen, Q. Jin, P. Wang, Q. Wu, Say as you wish: Fine-grained control of image           [30] A. Bordes, N. Usunier, A. Garcia-Duran, J. Weston, O. Yakhnenko, Translating
+     caption generation with abstract scene graphs, in: Proceedings of the IEEE/CVF                 embeddings for modeling multi-relational data, Adv. Neural Inf. Process. Syst.
+     Conference on Computer Vision and Pattern Recognition, 2020, pp. 9962–9971.                    26 (2013).
+ [4] J. Shi, H. Zhang, J. Li, Explainable and explicit visual reasoning over scene             [31] D. Xu, Y. Zhu, C.B. Choy, L. Fei-Fei, Scene graph generation by iterative message
+     graphs, in: Proceedings of the IEEE/CVF Conference on Computer Vision and                      passing, in: Proceedings of the IEEE Conference on Computer Vision and Pattern
+     Pattern Recognition, 2019, pp. 8376–8384.                                                      Recognition, 2017, pp. 5410–5419.
+
+
+                                                                                          11
+R. Zhang et al.                                                                                                         Pattern Recognition 158 (2025) 111039
+
+
+[32] K. Tang, Y. Niu, J. Huang, J. Shi, H. Zhang, Unbiased scene graph generation                 Ruonan Zhang received the B.E. degree in computer sci-
+     from biased training, in: Proceedings of the IEEE/CVF Conference on Computer                 ence and technology from Chang’an University, Xi’an, China,
+     Vision and Pattern Recognition, 2020, pp. 3716–3725.                                         in 2021. She is currently pursuing the Ph.D. degree with the
+[33] H. Liu, N. Yan, M. Mortazavi, B. Bhanu, Fully convolutional scene graph                      Institute of Information Science, Beijing Jiaotong University,
+     generation, in: Proceedings of the IEEE/CVF Conference on Computer Vision                    Beijing. Her main research interests include computer vi-
+     and Pattern Recognition, 2021, pp. 11546–11556.                                              sion, pattern recognition, and deep learning, in particular
+[34] X. Lin, C. Ding, J. Zhang, Y. Zhan, D. Tao, RU-net: Regularized unrolling network            focusing on scene graph generation.
+     for scene graph generation, in: Proceedings of the IEEE/CVF Conference on
+     Computer Vision and Pattern Recognition, 2022, pp. 19457–19466.
+[35] R. Li, S. Zhang, X. He, SGTR: End-to-end scene graph generation with trans-
+     former, in: Proceedings of the IEEE/CVF Conference on Computer Vision and
+     Pattern Recognition, 2022, pp. 19486–19496.
+[36] H. Zhou, Y. Yang, T. Luo, J. Zhang, S. Li, A unified deep sparse graph attention
+     network for scene graph generation, Pattern Recognit. 123 (2022) 108367.                     Gaoyun An received the B.S. degree in biological engi-
+[37] K. Yoon, K. Kim, J. Moon, C. Park, Unbiased heterogeneous scene graph                        neering and the Ph.D. degree in signal and information
+     generation with relation-aware message passing neural network, in: Proceedings               processing from Beijing Jiaotong University, Beijing, China,
+     of the AAAI Conference on Artificial Intelligence, Vol. 37, 2023, pp. 3285–3294.             in 2003 and 2008, respectively. He is currently a Professor
+[38] T. Jin, F. Guo, Q. Meng, S. Zhu, X. Xi, W. Wang, Z. Mu, W. Song, Fast contextual             and the Doctorate Supervisor with the Institute of Infor-
+     scene graph generation with unbiased context augmentation, in: Proceedings of                mation Science, Beijing Jiaotong University. He is also a
+     the IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2023,                    Visiting Scholar with the University of Florida, Gainesville,
+     pp. 6302–6311.                                                                               FL, USA, from 2017 to 2018. His research interests in-
+[39] D. Jung, S. Kim, W.H. Kim, M. Cho, Devil’s on the edges: Selective quad attention            clude image processing, deep learning, computer vision, and
+     for scene graph generation, in: Proceedings of the IEEE/CVF Conference on                    pattern recognition.
+     Computer Vision and Pattern Recognition, 2023, pp. 18664–18674.
+[40] W. Wang, R. Wang, S. Shan, X. Chen, Importance first: Generating scene graph
+     of human interest, Int. J. Comput. Vis. (2023) 1–27.
+[41] Y. Zang, Y. Li, Y. Gao, Y. Guo, W. Tang, Y. Li, M. Atlaw, Refine and redistribute:           Yigang Cen received the Ph.D. degree in control science
+     Multi-domain fusion and dynamic label assignment for unbiased scene graph                    engineering from the Huazhong University of Science Tech-
+     generation, in: Proceedings of the IEEE/CVF Winter Conference on Applications                nology, Wuhan, China, in 2006. In 2006, he joined the
+     of Computer Vision, 2024, pp. 1318–1327.                                                     Signal Processing Centre, School of Electrical and Electronic
+[42] C. Chen, Y. Zhan, B. Yu, L. Liu, Y. Luo, B. Du, Resistance training using prior bias:        Engineering, Nanyang Technological University, Singapore,
+     toward unbiased scene graph generation, in: Proceedings of the AAAI Conference               as a Research Fellow. From 2014 to 2015, he was a
+     on Artificial Intelligence, Vol. 36, 2022, pp. 212–220.                                      Visiting Scholar with the Department of Computer Science,
+[43] X. Li, L. Chen, W. Ma, Y. Yang, J. Xiao, Integrating object-aware and interaction-           University of Missouri, Columbia, MO, USA. He is currently
+     aware knowledge for weakly supervised scene graph generation, in: Proceedings                a Professor and a Supervisor of doctoral students with the
+     of the 30th ACM International Conference on Multimedia, 2022, pp. 4204–4213.                 School of Computer and Information Technology, Beijing
+[44] L. Li, L. Chen, Y. Huang, Z. Zhang, S. Zhang, J. Xiao, The devil is in the labels:           Jiaotong University, Beijing, China. His research interests
+     Noisy label correction for robust scene graph generation, in: Proceedings of the             include computer vision, multimedia understanding and
+     IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2022, pp.                    intelligent transportation etc.
+     18869–18878.
+[45] Y. Deng, Y. Li, Y. Zhang, X. Xiang, J. Wang, J. Chen, J. Ma, Hierarchical memory
+     learning for fine-grained scene graph generation, in: European Conference on                 Qiuqi Ruan received the B.S. and M.S. degrees from
+     Computer Vision, Springer, 2022, pp. 266–283.                                                Northern Jiaotong University, China, in 1969 and 1981,
+[46] B.A. Biswas, Q. Ji, Probabilistic debiasing of scene graphs, in: Proceedings of the          respectively. From 1987 to 1990, he was a Visiting Scholar
+     IEEE/CVF Conference on Computer Vision and Pattern Recognition, 2023, pp.                    with the University of Pittsburgh, Pittsburgh, PA, USA, and
+     10429–10438.                                                                                 also with the University of Cincinnati, Cincinnati, OH, USA.
+[47] L. Li, G. Chen, J. Xiao, Y. Yang, C. Wang, L. Chen, Compositional feature                    He was a Visiting Professor in USA, for several times. He is
+     augmentation for unbiased scene graph generation, in: Proceedings of the                     currently a Professor and a Doctorate Supervisor with the
+     IEEE/CVF International Conference on Computer Vision, 2023, pp. 21685–21695.                 Institute of Information Science, Beijing Jiaotong University,
+[48] Y. Min, A. Wu, C. Deng, Environment-invariant curriculum relation learning                   Beijing. He has authored two books and more than 100
+     for fine-grained scene graph generation, in: Proceedings of the IEEE/CVF                     papers. He holds one national patent. His main research
+     International Conference on Computer Vision, 2023, pp. 13296–13307.                          interests include digital signal processing, computer vision,
+[49] M. Zhao, Y. Kong, L. Zhang, B. Yin, Class correlation correction for unbiased                pattern recognition, and virtual reality.
+     scene graph generation, Pattern Recognit. 149 (2024) 110221.
+[50] N. Carion, F. Massa, G. Synnaeve, N. Usunier, A. Kirillov, S. Zagoruyko, End-to-
+     end object detection with transformers, in: European Conference on Computer
+     Vision, Springer, 2020, pp. 213–229.
+
+
+
+
+                                                                                             12
+
